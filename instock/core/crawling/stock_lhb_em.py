@@ -136,15 +136,15 @@ def stock_lhb_detail_em(
     return big_df
 
 
+"""
+东方财富网-数据中心-龙虎榜单-个股上榜统计
+https://data.eastmoney.com/stock/tradedetail.html
+:param symbol: choice of {"近一月", "近三月", "近六月", "近一年"}
+:type symbol: str
+:return: 个股上榜统计
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_stock_statistic_em(symbol: str = "近一月") -> pd.DataFrame:
-    """
-    东方财富网-数据中心-龙虎榜单-个股上榜统计
-    https://data.eastmoney.com/stock/tradedetail.html
-    :param symbol: choice of {"近一月", "近三月", "近六月", "近一年"}
-    :type symbol: str
-    :return: 个股上榜统计
-    :rtype: pandas.DataFrame
-    """
     symbol_map = {
         "近一月": "01",
         "近三月": "02",
@@ -319,15 +319,15 @@ def stock_lhb_jgmmtj_em(
     return temp_df
 
 
+"""
+东方财富网-数据中心-龙虎榜单-机构席位追踪
+https://data.eastmoney.com/stock/jgstatistic.html
+:param symbol: choice of {"近一月", "近三月", "近六月", "近一年"}
+:type symbol: str
+:return: 机构席位追踪
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_jgstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
-    """
-    东方财富网-数据中心-龙虎榜单-机构席位追踪
-    https://data.eastmoney.com/stock/jgstatistic.html
-    :param symbol: choice of {"近一月", "近三月", "近六月", "近一年"}
-    :type symbol: str
-    :return: 机构席位追踪
-    :rtype: pandas.DataFrame
-    """
     symbol_map = {
         "近一月": "01",
         "近三月": "02",
@@ -500,15 +500,15 @@ def stock_lhb_hyyyb_em(
     return big_df
 
 
+"""
+东方财富网-数据中心-龙虎榜单-营业部排行
+https://data.eastmoney.com/stock/yybph.html
+:param symbol: choice of {"近一月", "近三月", "近六月", "近一年"}
+:type symbol: str
+:return: 营业部排行
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_yybph_em(symbol: str = "近一月") -> pd.DataFrame:
-    """
-    东方财富网-数据中心-龙虎榜单-营业部排行
-    https://data.eastmoney.com/stock/yybph.html
-    :param symbol: choice of {"近一月", "近三月", "近六月", "近一年"}
-    :type symbol: str
-    :return: 营业部排行
-    :rtype: pandas.DataFrame
-    """
     symbol_map = {
         "近一月": "01",
         "近三月": "02",
@@ -608,15 +608,15 @@ def stock_lhb_yybph_em(symbol: str = "近一月") -> pd.DataFrame:
     return big_df
 
 
+"""
+东方财富网-数据中心-龙虎榜单-营业部统计
+https://data.eastmoney.com/stock/traderstatistic.html
+:param symbol: choice of {"近一月", "近三月", "近六月", "近一年"}
+:type symbol: str
+:return: 营业部统计
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_traderstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
-    """
-    东方财富网-数据中心-龙虎榜单-营业部统计
-    https://data.eastmoney.com/stock/traderstatistic.html
-    :param symbol: choice of {"近一月", "近三月", "近六月", "近一年"}
-    :type symbol: str
-    :return: 营业部统计
-    :rtype: pandas.DataFrame
-    """
     symbol_map = {
         "近一月": "01",
         "近三月": "02",
@@ -685,15 +685,15 @@ def stock_lhb_traderstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
     return big_df
 
 
+"""
+东方财富网-数据中心-龙虎榜单-个股龙虎榜详情-日期
+https://data.eastmoney.com/stock/tradedetail.html
+:param symbol: 股票代码
+:type symbol: str
+:return: 个股龙虎榜详情-日期
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_stock_detail_date_em(symbol: str = "600077") -> pd.DataFrame:
-    """
-    东方财富网-数据中心-龙虎榜单-个股龙虎榜详情-日期
-    https://data.eastmoney.com/stock/tradedetail.html
-    :param symbol: 股票代码
-    :type symbol: str
-    :return: 个股龙虎榜详情-日期
-    :rtype: pandas.DataFrame
-    """
     url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
     params = {
         "reportName": "RPT_LHB_BOARDDATE",

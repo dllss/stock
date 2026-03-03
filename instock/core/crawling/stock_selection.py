@@ -14,13 +14,13 @@ __date__ = '2025/12/31 '
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
 
+"""
+东方财富网-个股-选股器
+https://data.eastmoney.com/xuangu/
+:return: 选股器
+:rtype: pandas.DataFrame
+"""
 def stock_selection() -> pd.DataFrame:
-    """
-    东方财富网-个股-选股器
-    https://data.eastmoney.com/xuangu/
-    :return: 选股器
-    :rtype: pandas.DataFrame
-    """
     cols = tbs.TABLE_CN_STOCK_SELECTION['columns']
     page_size = 50
     page_current = 1
@@ -73,13 +73,13 @@ def stock_selection() -> pd.DataFrame:
     return temp_df
 
 
+"""
+东方财富网-个股-选股器-选股指标
+https://data.eastmoney.com/xuangu/
+:return: 选股器-选股指标
+:rtype: pandas.DataFrame
+"""
 def stock_selection_params():
-    """
-    东方财富网-个股-选股器-选股指标
-    https://data.eastmoney.com/xuangu/
-    :return: 选股器-选股指标
-    :rtype: pandas.DataFrame
-    """
     url = "https://datacenter-web.eastmoney.com/wstock/selection/api/data/get"
     params = {
         "type": "RPTA_PCNEW_WHOLE",

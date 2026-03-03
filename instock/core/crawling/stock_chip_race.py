@@ -13,13 +13,13 @@ from instock.core.singleton_proxy import proxys
 __author__ = 'myh '
 __date__ = '2025/2/26 '
 
+"""
+通达信竞价抢筹_早盘抢筹
+http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp
+:return: 早盘抢筹
+:rtype: pandas.DataFrame
+"""
 def stock_chip_race_open(date: str = "") -> pd.DataFrame:
-    """
-    通达信竞价抢筹_早盘抢筹
-    http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp
-    :return: 早盘抢筹
-    :rtype: pandas.DataFrame
-    """
     url = "http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp"
     #sort:1抢筹委托金额, 2抢筹成交金额, 3开盘金额, 4抢筹幅度, 5抢筹占比
     if date=="":
@@ -81,13 +81,13 @@ def stock_chip_race_open(date: str = "") -> pd.DataFrame:
 
     return temp_df
 
+"""
+通达信竞价抢筹_尾盘抢筹
+http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp
+:return: 尾盘抢筹
+:rtype: pandas.DataFrame
+"""
 def stock_chip_race_end(date: str = "") -> pd.DataFrame:
-    """
-    通达信竞价抢筹_尾盘抢筹
-    http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp
-    :return: 尾盘抢筹
-    :rtype: pandas.DataFrame
-    """
     url = "http://excalc.icfqs.com:7616/TQLEX?Entry=HQServ.hq_nlp"
     #sort:1抢筹委托金额, 2抢筹成交金额, 3开盘金额, 4抢筹幅度, 5抢筹占比
     if date=="":

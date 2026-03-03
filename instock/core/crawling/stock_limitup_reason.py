@@ -15,13 +15,13 @@ from instock.core.singleton_proxy import proxys
 __author__ = 'myh '
 __date__ = '2025/5/9 '
 
+"""
+同花顺涨停原因
+http://zx.10jqka.com.cn/event/api/getharden/date/2025-02-27/orderby/date/orderway/desc/charset/GBK/
+:return: 涨停原因
+:rtype: pandas.DataFrame
+"""
 def stock_limitup_reason(date: str = "2025-02-27") -> pd.DataFrame:
-    """
-    同花顺涨停原因
-    http://zx.10jqka.com.cn/event/api/getharden/date/2025-02-27/orderby/date/orderway/desc/charset/GBK/
-    :return: 涨停原因
-    :rtype: pandas.DataFrame
-    """
     url = f"http://zx.10jqka.com.cn/event/api/getharden/date/{date}/orderby/date/orderway/desc/charset/GBK/"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 Thx"
@@ -89,13 +89,13 @@ def stock_limitup_reason(date: str = "2025-02-27") -> pd.DataFrame:
     return temp_df
 
 
+"""
+同花顺涨停详因
+http://zx.10jqka.com.cn/event/harden/stockreason/id/70870005
+:return: 涨停详因
+:rtype: pandas.DataFrame
+"""
 def stock_limitup_detail(row):
-    """
-    同花顺涨停详因
-    http://zx.10jqka.com.cn/event/harden/stockreason/id/70870005
-    :return: 涨停详因
-    :rtype: pandas.DataFrame
-    """
     url = f"http://zx.10jqka.com.cn/event/harden/stockreason/id/{row['ID']}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36"

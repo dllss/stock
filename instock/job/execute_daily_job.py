@@ -1,66 +1,336 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+每日任务总调度模块
+==================
+这是整个系统的任务调度中心，负责协调所有数据处理任务。
 
+什么是任务调度？
+- 按照一定的顺序执行多个任务
+- 有些任务可以并行执行（同时进行）
+- 有些任务必须串行执行（按顺序）
+- 记录执行时间和日志
 
-import time
-import datetime
-import concurrent.futures
-import logging
-import os.path
-import sys
+系统的完整数据处理流程：
+┌─────────────────────────────────────────────────┐
+│  第1步：init_job                                 │
+│  初始化数据库和表结构                             │
+└────────────────┬────────────────────────────────┘
+                 ↓
+┌─────────────────────────────────────────────────┐
+│  第2.1步：basic_data_daily_job                   │
+│  抓取基础数据（股票、ETF当日数据）                 │
+└────────────────┬────────────────────────────────┘
+                 ↓
+┌─────────────────────────────────────────────────┐
+│  第2.2步：selection_data_daily_job               │
+│  抓取综合选股数据                                 │
+└────────────────┬────────────────────────────────┘
+                 ↓
+┌─────────────────────────────────────────────────┐
+│  第3步：并行执行（使用多线程）                     │
+│  ├─ basic_data_other_daily_job   (其他基础数据)   │
+│  ├─ indicators_data_daily_job    (计算技术指标)   │
+│  ├─ klinepattern_data_daily_job  (识别K线形态)   │
+│  └─ strategy_data_daily_job      (策略选股)      │
+└────────────────┬────────────────────────────────┘
+                 ↓
+┌─────────────────────────────────────────────────┐
+│  第4步：backtest_data_daily_job                  │
+│  回测验证（计算收益率）                           │
+└────────────────┬────────────────────────────────┘
+                 ↓
+┌─────────────────────────────────────────────────┐
+│  第5步：basic_data_after_close_daily_job         │
+│  收盘后数据（大宗交易等）                          │
+└─────────────────────────────────────────────────┘
 
+为什么这样设计？
+1. 串行任务：有依赖关系，必须按顺序
+   - 必须先有基础数据，才能计算指标
+   - 必须先有策略结果，才能回测
+   
+2. 并行任务：相互独立，可以同时执行
+   - 计算指标、识别形态、策略选股可以同时进行
+   - 利用多核CPU，大大缩短总时间
+   
+3. 时间优化：
+   - 单线程：可能需要30分钟
+   - 多线程：可能只需要5-10分钟
+
+运行方式：
+1. 当前时间：python execute_daily_job.py
+2. 指定日期：python execute_daily_job.py 2024-01-01
+3. 多个日期：python execute_daily_job.py 2024-01-01,2024-01-02
+4. 日期区间：python execute_daily_job.py 2024-01-01 2024-01-10
+
+日志文件：
+- stock_execute_job.log：记录所有任务的执行情况
+"""
+
+# ==================== 导入必需的库 ====================
+import time  # 时间测量
+import datetime  # 日期时间处理
+import concurrent.futures  # 并发执行（多线程）
+import logging  # 日志记录
+import os.path  # 文件路径处理
+import sys  # 系统相关
+
+# ==================== 路径和日志配置 ====================
 # 在项目运行时，临时将项目路径添加到环境变量
-cpath_current = os.path.dirname(os.path.dirname(__file__))
-cpath = os.path.abspath(os.path.join(cpath_current, os.pardir))
-sys.path.append(cpath)
-log_path = os.path.join(cpath_current, 'log')
-if not os.path.exists(log_path):
-    os.makedirs(log_path)
-logging.basicConfig(format='%(asctime)s %(message)s', filename=os.path.join(log_path, 'stock_execute_job.log'))
-logging.getLogger().setLevel(logging.INFO)
-import init_job as bj
-import basic_data_daily_job as hdj
-import basic_data_other_daily_job as hdtj
-import basic_data_after_close_daily_job as acdj
-import indicators_data_daily_job as gdj
-import strategy_data_daily_job as sdj
-import backtest_data_daily_job as bdj
-import klinepattern_data_daily_job as kdj
-import selection_data_daily_job as sddj
+cpath_current = os.path.dirname(os.path.dirname(__file__))  # 当前目录的上级目录
+cpath = os.path.abspath(os.path.join(cpath_current, os.pardir))  # 项目根目录
+sys.path.append(cpath)  # 添加到Python搜索路径
+
+# 配置日志：同时输出到终端和文件
+from instock.lib.logger_config import setup_job_logging
+log_path = os.path.dirname(setup_job_logging())  # 日志目录，供末尾 print 使用
+
+# ==================== 导入各个任务模块 ====================
+# 这些模块分别负责不同的数据处理任务
+import init_job as ij  # 初始化任务
+import basic_data_daily_job as hdj  # 基础数据任务
+import basic_data_other_daily_job as hdtj  # 其他基础数据任务
+import basic_data_after_close_daily_job as acdj  # 收盘后数据任务
+import indicators_data_daily_job as gdj  # 指标计算任务
+import strategy_data_daily_job as sdj  # 策略选股任务
+import backtest_data_daily_job as bdj  # 回测任务
+import klinepattern_data_daily_job as kdj  # K线形态识别任务
+import selection_data_daily_job as sddj  # 综合选股任务
 
 __author__ = 'myh '
 __date__ = '2023/3/10 '
 
 
+# ==================== 主函数 ====================
+
+"""
+任务调度主函数
+功能说明：
+按照预定顺序执行所有数据处理任务
+串行任务按顺序执行，并行任务使用线程池同时执行
+执行步骤：
+1. 初始化数据库
+2. 抓取基础数据
+3. 抓取综合选股数据
+4. 并行执行：其他基础数据、指标计算、形态识别、策略选股
+5. 回测验证
+6. 收盘后数据
+性能优化：
+- 使用并发执行加速处理
+- 记录执行时间，便于优化
+日志记录：
+- 记录任务开始时间
+- 记录任务完成时间和耗时
+- 各子任务也有详细日志
+使用示例：
+# 方式1：直接运行脚本（使用当前交易日）
+python execute_daily_job.py
+# 方式2：指定日期
+python execute_daily_job.py 2024-01-01
+# 方式3：多个日期
+python execute_daily_job.py 2024-01-01,2024-01-02,2024-01-03
+# 方式4：日期区间
+python execute_daily_job.py 2024-01-01 2024-01-10
+"""
 def main():
-    start = time.time()
-    _start = datetime.datetime.now()
+    # 步骤0: 记录任务开始时间
+    start = time.time()  # 记录开始时间戳（秒）
+    _start = datetime.datetime.now()  # 获取当前日期时间
+    
+    # 记录任务开始日志
+    # strftime()：格式化日期时间为字符串
+    # %Y-%m-%d：年-月-日
+    # %H:%M:%S：时-分-秒
+    # %f：微秒
     logging.info("######## 任务执行时间: %s #######" % _start.strftime("%Y-%m-%d %H:%M:%S.%f"))
-    # 第1步创建数据库
-    bj.main()
-    # 第2.1步创建股票基础数据表
+    # ==================== 步骤1：初始化数据库 ====================
+    # 创建数据库和所有表结构
+    # 如果数据库已存在，则跳过
+    # 如果表已存在，则跳过
+    ij.main()
+    
+    # ==================== 步骤2.1：抓取基础数据 ====================
+    # 基础数据是后续所有任务的基础
+    # 包括：
+    # - 每日股票数据（价格、成交量、市值等）
+    # - 每日ETF数据
+    # - 资金流向数据
+    # - 分红配送数据
+    # - 龙虎榜数据
+    # 这些数据必须先获取，后面的任务依赖它们
     hdj.main()
-    # 第2.2步创建综合股票数据表
+    
+    # ==================== 步骤2.2：抓取综合选股数据 ====================
+    # 综合选股数据（200+个选股指标）
+    # 这个任务比较耗时，但不影响其他任务
     sddj.main()
+    
+    # ==================== 步骤3：并行执行多个任务 ====================
+    # 这些任务相互独立，可以同时执行，提高效率
+    # 使用ThreadPoolExecutor创建线程池
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        # # 第3.1步创建股票其它基础数据表
+        # ThreadPoolExecutor：线程池执行器
+        # with语句：自动管理线程池的创建和关闭
+        # 默认线程数：CPU核心数 * 5
+        
+        # 任务1：抓取其他基础数据
+        # 包括：早盘抢筹、尾盘抢筹、涨停原因等
+        # submit()：提交一个任务到线程池
+        # 返回Future对象，代表异步执行的结果
         executor.submit(hdtj.main)
-        # # 第3.2步创建股票指标数据表
+
+        # 任务2：计算技术指标（当前已注释，按需开启）
         # executor.submit(gdj.main)
-        # # # # 第4步创建股票k线形态表
+
+        # 任务3：识别K线形态（当前已注释，按需开启）
         # executor.submit(kdj.main)
-        # # # # 第5步创建股票策略数据表
+
+        # 任务4：策略选股（当前已注释，按需开启）
         # executor.submit(sdj.main)
 
-    # # # # 第6步创建股票回测
+    # 步骤4：回测验证（当前已注释，按需开启）
     # bdj.main()
 
-    # # # # 第7步创建股票闭盘后才有的数据
+    # 步骤5：收盘后数据
     acdj.main()
+    
+    # ==================== 记录任务完成 ====================
+    # 计算总耗时
+    elapsed_time = time.time() - start
+    
+    # 记录完成日志
+    logging.info("######## 完成任务, 使用时间: %s 秒 #######" % elapsed_time)
+    
+    # 在终端也打印完成信息（方便用户看到）
+    print(f"任务完成！总耗时：{elapsed_time:.2f}秒")
+    print(f"日志文件：{os.path.join(log_path, 'stock_execute_job.log')}")
 
-    logging.info("######## 完成任务, 使用时间: %s 秒 #######" % (time.time() - start))
 
-
+# ==================== 程序入口 ====================
 # main函数入口
 if __name__ == '__main__':
+    """
+    程序入口点
+    
+    Python程序执行流程：
+    1. 当直接运行这个脚本时，__name__ == '__main__'
+    2. 当被其他模块导入时，__name__ == 模块名
+    3. 这个判断确保只有直接运行时才执行main()
+    
+    为什么这样设计？
+    - 模块可以被导入而不自动执行
+    - 可以在其他地方调用main()函数
+    - 符合Python的最佳实践
+    """
+    logging.info("##### gogo ######")
     main()
+
+
+"""
+===========================================
+任务调度模块使用总结（给Python新手）
+===========================================
+
+1. 任务执行顺序
+   第1步：初始化数据库 ← 串行
+   第2步：抓取基础数据 ← 串行
+   第3步：抓取选股数据 ← 串行
+   第4步：并行任务 ← 并行
+      ├─ 其他基础数据
+      ├─ 计算技术指标
+      ├─ 识别K线形态
+      └─ 策略选股
+   第5步：回测验证 ← 串行
+   第6步：收盘后数据 ← 串行
+
+2. 串行 vs 并行
+   串行（Sequential）：
+   - 一个接一个执行
+   - 有依赖关系的任务必须串行
+   - 例如：必须先有数据，才能计算指标
+   
+   并行（Parallel）：
+   - 同时执行多个任务
+   - 独立的任务可以并行
+   - 利用多核CPU，提高效率
+
+3. 多线程概念
+   - 线程：程序执行的最小单位
+   - 多线程：同时运行多个线程
+   - ThreadPoolExecutor：Python的线程池管理器
+   - submit()：提交任务到线程池
+
+4. 时间估算
+   单线程顺序执行：
+   - 基础数据：2分钟
+   - 选股数据：5分钟
+   - 指标计算：10分钟
+   - 形态识别：8分钟
+   - 策略选股：5分钟
+   - 回测：3分钟
+   总计：33分钟
+   
+   多线程并行执行：
+   - 基础数据：2分钟
+   - 选股数据：5分钟
+   - 并行任务：10分钟（最长的那个）
+   - 回测：3分钟
+   总计：20分钟
+   
+   效率提升：约40%
+
+5. 运行方式
+   # 当前交易日
+   python execute_daily_job.py
+   
+   # 指定日期
+   python execute_daily_job.py 2024-01-01
+   
+   # 多个日期
+   python execute_daily_job.py 2024-01-01,2024-01-02
+   
+   # 日期区间
+   python execute_daily_job.py 2024-01-01 2024-01-10
+
+6. 日志文件
+   - 位置：instock/log/stock_execute_job.log
+   - 内容：任务开始/结束时间、错误信息
+   - 格式：时间戳 + 消息内容
+
+7. 常见问题
+   Q：为什么某些任务要串行？
+   A：因为有依赖关系，后面的任务需要前面的结果
+   
+   Q：为什么不全部并行？
+   A：并行任务会占用更多内存和CPU，要平衡
+   
+   Q：如何查看任务进度？
+   A：查看日志文件，或在终端看输出
+   
+   Q：任务失败怎么办？
+   A：查看日志文件中的错误信息，修复后重新运行
+
+8. 定时执行
+   Windows：使用任务计划程序
+   Linux：使用cron
+   Docker：容器内自动执行
+   
+   建议时间：
+   - 工作日 17:30（收盘后）
+   - 确保当天数据已发布
+
+9. Python知识点
+   - import：导入模块
+   - with语句：上下文管理器
+   - 线程池：concurrent.futures
+   - 日志：logging模块
+   - 时间：time、datetime模块
+   - __name__ == '__main__'：程序入口
+
+10. 扩展建议
+   - 添加邮件通知：任务完成/失败发邮件
+   - 添加进度显示：使用tqdm显示进度条
+   - 添加错误重试：失败自动重试3次
+   - 添加数据验证：检查数据完整性
+"""

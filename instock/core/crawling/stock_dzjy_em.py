@@ -17,13 +17,13 @@ __date__ = '2025/12/31 '
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
 
+"""
+东方财富网-数据中心-大宗交易-市场统计
+http://data.eastmoney.com/dzjy/dzjy_sctj.aspx
+:return: 市场统计表
+:rtype: pandas.DataFrame
+"""
 def stock_dzjy_sctj() -> pd.DataFrame:
-    """
-    东方财富网-数据中心-大宗交易-市场统计
-    http://data.eastmoney.com/dzjy/dzjy_sctj.aspx
-    :return: 市场统计表
-    :rtype: pandas.DataFrame
-    """
     url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
     params = {
         'sortColumns': 'TRADE_DATE',
@@ -72,19 +72,19 @@ def stock_dzjy_sctj() -> pd.DataFrame:
     return big_df
 
 
+"""
+东方财富网-数据中心-大宗交易-每日明细
+http://data.eastmoney.com/dzjy/dzjy_mrmxa.aspx
+:param symbol: choice of {'A股', 'B股', '基金', '债券'}
+:type symbol: str
+:param start_date: 开始日期
+:type start_date: str
+:param end_date: 结束日期
+:type end_date: str
+:return: 每日明细
+:rtype: pandas.DataFrame
+"""
 def stock_dzjy_mrmx(symbol: str = '基金', start_date: str = '20220104', end_date: str = '20220104') -> pd.DataFrame:
-    """
-    东方财富网-数据中心-大宗交易-每日明细
-    http://data.eastmoney.com/dzjy/dzjy_mrmxa.aspx
-    :param symbol: choice of {'A股', 'B股', '基金', '债券'}
-    :type symbol: str
-    :param start_date: 开始日期
-    :type start_date: str
-    :param end_date: 结束日期
-    :type end_date: str
-    :return: 每日明细
-    :rtype: pandas.DataFrame
-    """
     symbol_map = {
         'A股': '1',
         'B股': '2',
@@ -197,17 +197,17 @@ def stock_dzjy_mrmx(symbol: str = '基金', start_date: str = '20220104', end_da
     return temp_df
 
 
+"""
+东方财富网-数据中心-大宗交易-每日统计
+http://data.eastmoney.com/dzjy/dzjy_mrtj.aspx
+:param start_date: 开始日期
+:type start_date: str
+:param end_date: 结束日期
+:type end_date: str
+:return: 每日统计
+:rtype: pandas.DataFrame
+"""
 def stock_dzjy_mrtj(start_date: str = '20220105', end_date: str = '20220105') -> pd.DataFrame:
-    """
-    东方财富网-数据中心-大宗交易-每日统计
-    http://data.eastmoney.com/dzjy/dzjy_mrtj.aspx
-    :param start_date: 开始日期
-    :type start_date: str
-    :param end_date: 结束日期
-    :type end_date: str
-    :return: 每日统计
-    :rtype: pandas.DataFrame
-    """
     url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
     params = {
         'sortColumns': 'TURNOVERRATE',
@@ -270,15 +270,15 @@ def stock_dzjy_mrtj(start_date: str = '20220105', end_date: str = '20220105') ->
     return temp_df
 
 
+"""
+东方财富网-数据中心-大宗交易-活跃 A 股统计
+http://data.eastmoney.com/dzjy/dzjy_hygtj.aspx
+:param symbol: choice of {'近一月', '近三月', '近六月', '近一年'}
+:type symbol: str
+:return: 活跃 A 股统计
+:rtype: pandas.DataFrame
+"""
 def stock_dzjy_hygtj(symbol: str = '近三月') -> pd.DataFrame:
-    """
-    东方财富网-数据中心-大宗交易-活跃 A 股统计
-    http://data.eastmoney.com/dzjy/dzjy_hygtj.aspx
-    :param symbol: choice of {'近一月', '近三月', '近六月', '近一年'}
-    :type symbol: str
-    :return: 活跃 A 股统计
-    :rtype: pandas.DataFrame
-    """
     period_map = {
         '近一月': '1',
         '近三月': '3',
@@ -366,15 +366,15 @@ def stock_dzjy_hygtj(symbol: str = '近三月') -> pd.DataFrame:
     return big_df
 
 
+"""
+东方财富网-数据中心-大宗交易-活跃营业部统计
+https://data.eastmoney.com/dzjy/dzjy_hyyybtj.html
+:param symbol: choice of {'当前交易日', '近3日', '近5日', '近10日', '近30日'}
+:type symbol: str
+:return: 活跃营业部统计
+:rtype: pandas.DataFrame
+"""
 def stock_dzjy_hyyybtj(symbol: str = '近3日') -> pd.DataFrame:
-    """
-    东方财富网-数据中心-大宗交易-活跃营业部统计
-    https://data.eastmoney.com/dzjy/dzjy_hyyybtj.html
-    :param symbol: choice of {'当前交易日', '近3日', '近5日', '近10日', '近30日'}
-    :type symbol: str
-    :return: 活跃营业部统计
-    :rtype: pandas.DataFrame
-    """
     period_map = {
         '当前交易日': '1',
         '近3日': '3',
@@ -442,15 +442,15 @@ def stock_dzjy_hyyybtj(symbol: str = '近3日') -> pd.DataFrame:
     return big_df
 
 
+"""
+东方财富网-数据中心-大宗交易-营业部排行
+http://data.eastmoney.com/dzjy/dzjy_yybph.aspx
+:param symbol: choice of {'近一月', '近三月', '近六月', '近一年'}
+:type symbol: str
+:return: 营业部排行
+:rtype: pandas.DataFrame
+"""
 def stock_dzjy_yybph(symbol: str = '近三月') -> pd.DataFrame:
-    """
-    东方财富网-数据中心-大宗交易-营业部排行
-    http://data.eastmoney.com/dzjy/dzjy_yybph.aspx
-    :param symbol: choice of {'近一月', '近三月', '近六月', '近一年'}
-    :type symbol: str
-    :return: 营业部排行
-    :rtype: pandas.DataFrame
-    """
     period_map = {
         '近一月': '30',
         '近三月': '90',

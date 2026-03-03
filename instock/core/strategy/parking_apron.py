@@ -1,59 +1,441 @@
 #!/usr/local/bin/python
 # -*- coding: utf-8 -*-
+"""
+停机坪策略（第六层 - 短线策略）
+=================================
+这是一个短线爆发形态策略，寻找涨停后横盘整理的股票。
 
-from datetime import datetime
-from instock.core.strategy import turtle_trade
+策略名称：停机坪
+策略类型：短线爆发、形态突破
+策略周期：短期（3-5天）
+
+策略原理：
+- 股票先涨停（强势标志）
+- 涨停后横盘整理（不回调）
+- 形成"停机坪"形态
+- 整理后可能继续上涨
+
+什么是停机坪形态？
+- 形态图像：像飞机停机的平台
+- 结构：涨停+横盘
+- 特征：高位缩量横盘
+- 预期：蓄势待发，可能再次上涨
+
+策略条件（3个主要条件）：
+1. 近15日有涨停（涨幅>9.5%）：
+   - 且必须是放量上涨（使用海龟策略判断）
+   - 说明：有主力资金推动
+   
+2. 涨停后第1天：
+   - 必须高开（open > 前收盘）
+   - 收盘价上涨（close > 前收盘）
+   - 涨幅不大（close/open: 0.97-1.03，约±3%）
+   - 说明：不大涨不大跌，开始横盘
+   
+3. 涨停后第2-3天：
+   - 必须高开
+   - 收盘价上涨
+   - 涨幅控制（close/open: 0.97-1.03）
+   - 每天涨跌幅在±5%之间
+   - 说明：继续横盘，筹码稳定
+
+为什么这样设计？
+- 涨停放量：有主力资金介入
+- 高开不跌：主力控盘能力强
+- 小幅震荡：洗盘吸筹，筹码换手
+- 形成平台：蓄势待发
+
+策略优势：
+1. 形态明显：容易识别
+2. 主力控盘：涨停+横盘说明有资金
+3. 买点明确：横盘结束突破时买入
+4. 盈亏比好：止损明确，盈利空间大
+
+策略风险：
+1. 可能是诱多：涨停吸引跟风盘，主力出货
+2. 横盘失败：可能转为下跌
+3. 时间窗口短：需要快速决策
+4. 容易被套：追高风险
+
+适用市场：
+- 牛市：效果最好
+- 热点题材：容易出现
+- 不适合熊市
+
+使用建议：
+- 关注成交量：横盘时量要缩小
+- 设置止损：跌破平台止损
+- 快进快出：短线操作
+- 控制仓位：风险较高
+"""
+
+# ==================== 导入必需的库 ====================
+from datetime import datetime  # 日期时间处理
+from instock.core.strategy import turtle_trade  # 海龟交易策略（用于判断放量）
 
 __author__ = 'myh '
 __date__ = '2023/3/10 '
 
 
-# 停机坪
-# 1.最近15日有涨幅大于9.5%，且必须是放量上涨
-# 2.紧接的下个交易日必须高开，收盘价必须上涨，且与开盘价不能大于等于相差3%
-# 3.接下2、3个交易日必须高开，收盘价必须上涨，且与开盘价不能大于等于相差3%，且每天涨跌幅在5%间
+# ==================== 停机坪策略 ====================
+
+"""
+停机坪策略检测函数
+参数说明：
+code_name (tuple): 股票信息(date, code, name)
+data (DataFrame): 历史K线数据
+必须包含：
+- date：日期
+- close：收盘价
+- open：开盘价
+- p_change：涨跌幅
+- volume：成交量
+date (datetime.date, 可选): 计算日期
+threshold (int): 观察周期，默认15天
+- 在最近15天内寻找涨停日
+返回值：
+bool:
+- True：符合停机坪策略
+- False：不符合策略
+执行流程：
+1. 数据预处理
+2. 取最后15天数据
+3. 遍历寻找涨停日
+4. 检查涨停日是否放量（调用海龟策略）
+5. 检查涨停后3天的横盘形态
+6. 返回结果
+涨停判断：
+- 涨幅 > 9.5%
+- A股涨停限制10%，9.5%算涨停
+放量判断：
+- 调用turtle_trade.check_enter()
+- 该函数检查是否创新高（变相检查放量）
+横盘判断：
+- 高开：open > 前收盘
+- 收涨：close > 前收盘（涨停价）
+- 小幅：close/open在0.97-1.03（±3%）
+- 控幅：p_change在-5%到5%之间
+为什么用check_internal？
+- 代码结构清晰
+- check找涨停日
+- check_internal检查横盘
+- 分离关注点
+"""
 def check(code_name, data, date=None, threshold=15):
-    origin_data = data
+    
+    # ==================== 步骤1: 数据预处理 ====================
+    origin_data = data  # 保存原始数据（供海龟策略使用）
+    
+    # 确定计算日期
     if date is None:
         end_date = code_name[0]
     else:
         end_date = date.strftime("%Y-%m-%d")
+    
+    # 筛选数据
     if end_date is not None:
         mask = (data['date'] <= end_date)
         data = data.loc[mask]
+    
+    # 数据充足性检查
     if len(data.index) < threshold:
         return False
 
+    # ==================== 步骤2: 取最后15天数据 ====================
     data = data.tail(n=threshold)
 
+    # ==================== 步骤3: 寻找涨停日 ====================
+    # 初始化涨停日记录：[收盘价, 日期]
     limitup_row = [1000000, '']
-    # 找出涨停日
+    
+    # 遍历所有数据，寻找涨停日
     for _close, _p_change, _date in zip(data['close'].values, data['p_change'].values, data['date'].values):
+        # 检查是否涨停（涨幅>9.5%）
         if _p_change > 9.5:
-            if turtle_trade.check_enter(code_name, origin_data, date=datetime.date(datetime.strptime(_date, '%Y-%m-%d')), threshold=threshold):
-                limitup_row[0] = _close
-                limitup_row[1] = _date
+            # 检查涨停是否放量（使用海龟策略判断）
+            # 海龟策略check_enter检查是否创新高
+            # 创新高通常伴随放量
+            if turtle_trade.check_enter(
+                code_name, 
+                origin_data, 
+                date=datetime.date(datetime.strptime(_date, '%Y-%m-%d')), 
+                threshold=threshold
+            ):
+                # 涨停且放量，记录这一天
+                limitup_row[0] = _close  # 涨停价
+                limitup_row[1] = _date  # 涨停日期
+                
+                # 检查涨停后的横盘形态
                 if check_internal(data, limitup_row):
+                    # 找到一个符合的形态，返回True
                     return True
+    
+    # 没有找到符合条件的涨停日
     return False
 
+
+"""
+检查涨停后的横盘形态（内部函数）
+参数说明：
+data (DataFrame): K线数据
+limitup_row (list): 涨停日信息 [涨停价, 涨停日期]
+返回值：
+bool: True表示横盘形态成立
+检查内容：
+涨停后连续3天的形态
+- 第1天：高开、收涨、小幅震荡
+- 第2天：高开、收涨、小幅震荡
+- 第3天：高开、收涨、小幅震荡
+为什么是3天？
+- 1天：时间太短，不稳定
+- 3天：足够确认横盘
+- 5天：时间太长，机会可能错过
+为什么要高开？
+- 主力控盘的表现
+- 避免跳空低开破坏形态
+- 保持强势
+为什么要小幅震荡？
+- 大涨：可能追高，风险大
+- 大跌：形态破坏
+- 小幅：横盘整理，筹码稳定
+"""
 def check_internal(data, limitup_row):
-    limitup_price = limitup_row[0]
+    # ==================== 步骤1: 提取涨停信息 ====================
+    limitup_price = limitup_row[0]  # 涨停价
+    
+    # ==================== 步骤2: 筛选涨停后的数据 ====================
+    # 只要涨停日之后的数据
     limitup_end = data.loc[(data['date'] > limitup_row[1])]
+    # 取前3天
     limitup_end = limitup_end.head(n=3)
+    
+    # 检查是否有3天数据
     if len(limitup_end.index) < 3:
+        # 数据不足3天，无法判断
         return False
 
-    consolidation_day1 = limitup_end.iloc[0]
-    consolidation_day23 = limitup_end.tail(n=2)
+    # ==================== 步骤3: 分离第1天和第2-3天 ====================
+    consolidation_day1 = limitup_end.iloc[0]  # 第1天数据
+    consolidation_day23 = limitup_end.tail(n=2)  # 第2-3天数据
 
-    if not (consolidation_day1['close'] > limitup_price and consolidation_day1['open'] > limitup_price and
+    # ==================== 步骤4: 检查第1天形态 ====================
+    # 条件：
+    # 1. 收盘价 > 涨停价（继续上涨或持平）
+    # 2. 开盘价 > 涨停价（高开）
+    # 3. 收盘/开盘在0.97-1.03之间（小幅震荡±3%）
+    if not (consolidation_day1['close'] > limitup_price and 
+            consolidation_day1['open'] > limitup_price and
             0.97 < consolidation_day1['close'] / consolidation_day1['open'] < 1.03):
+        # 第1天不符合，形态不成立
         return False
 
-    for _close, _p_change, _open in zip(consolidation_day23['close'].values, consolidation_day23['p_change'].values, consolidation_day23['open'].values):
-        if not (0.97 < (_close / _open) < 1.03 and -5 < _p_change < 5
-                and _close > limitup_price and _open > limitup_price):
+    # ==================== 步骤5: 检查第2-3天形态 ====================
+    # 遍历第2天和第3天
+    for _close, _p_change, _open in zip(
+        consolidation_day23['close'].values, 
+        consolidation_day23['p_change'].values, 
+        consolidation_day23['open'].values
+    ):
+        # 检查条件：
+        # 1. close/open在0.97-1.03（小幅震荡）
+        # 2. 涨跌幅在-5%到5%（控制幅度）
+        # 3. 收盘价 > 涨停价（不跌破平台）
+        # 4. 开盘价 > 涨停价（高开）
+        if not (0.97 < (_close / _open) < 1.03 and 
+                -5 < _p_change < 5 and
+                _close > limitup_price and 
+                _open > limitup_price):
+            # 有一天不符合，形态不成立
             return False
 
+    # 所有条件满足，形态成立
     return True
+
+
+"""
+===========================================
+停机坪策略使用总结（给Python新手）
+===========================================
+
+1. 策略概念
+   名称：停机坪
+   英文：Parking Apron
+   类型：短线形态策略
+   周期：3-5天
+
+2. 形态特征
+   阶段1：涨停
+   - 大涨超过9.5%
+   - 放量上涨
+   - 资金推动
+   
+   阶段2：横盘（停机坪）
+   - 高开不跌
+   - 小幅震荡
+   - 缩量整理
+   
+   阶段3：再次上涨（预期）
+   - 整理结束
+   - 继续拉升
+
+3. 技术要点
+   涨停判断：
+   - p_change > 9.5
+   - A股涨停限制10%
+   
+   放量判断：
+   - 调用turtle_trade策略
+   - 创新高 = 放量
+   
+   横盘判断：
+   - close/open: 0.97-1.03
+   - 小幅震荡±3%
+
+4. 为什么有效？
+   主力控盘：
+   - 涨停：主力拉升
+   - 横盘：主力控盘
+   - 不跌：主力护盘
+   
+   筹码换手：
+   - 横盘期：筹码交换
+   - 恐慌盘出：不坚定者卖出
+   - 坚定盘进：看好者买入
+   
+   蓄势待发：
+   - 整理充分
+   - 随时突破
+   - 上涨空间大
+
+5. 实战案例
+   某股票600001：
+   
+   第1天：
+   - 涨停10%（从10元到11元）
+   - 成交量放大3倍
+   - 创20日新高
+   
+   第2天（横盘第1天）：
+   - 高开11.2元
+   - 收盘11.3元（+2.7%）
+   - 震荡小，量缩小
+   
+   第3天（横盘第2天）：
+   - 高开11.25元
+   - 收盘11.4元（+0.9%）
+   - 继续横盘
+   
+   第4天（横盘第3天）：
+   - 高开11.35元
+   - 收盘11.5元（+0.9%）
+   - 形成停机坪！
+   
+   第5天：
+   - 符合策略，买入机会！
+   - 预期：可能再次上涨
+
+6. 使用方法
+   步骤1：筛选
+   - python strategy_data_daily_job.py
+   - 找出停机坪形态的股票
+   
+   步骤2：观察
+   - 查看K线图确认
+   - 检查成交量变化
+   - 了解涨停原因
+   
+   步骤3：买入
+   - 横盘第3天收盘前买入
+   - 或第4天突破时买入
+   
+   步骤4：卖出
+   - 止损：跌破平台3%
+   - 止盈：盈利10-20%
+   - 或横盘超过5天
+
+7. 注意事项
+   - 涨停原因：了解为什么涨停
+   - 大盘环境：大盘向好时使用
+   - 成交量：横盘期量要萎缩
+   - 控盘度：主力筹码要足
+   - 题材：有题材支撑更好
+
+8. 风险控制
+   止损设置：
+   - 跌破涨停价：止损
+   - 跌幅超过5%：止损
+   - 横盘失败：止损
+   
+   仓位控制：
+   - 单只不超过20%
+   - 3-5只分散风险
+   
+   时间控制：
+   - 3天内未突破：减仓
+   - 5天内未突破：清仓
+
+9. 优化建议
+   条件调整：
+   - 涨停幅度：改为8%或11%
+   - 横盘天数：改为2天或4天
+   - 震荡幅度：改为±2%或±5%
+   
+   增加条件：
+   - 成交量递减：横盘时量要缩
+   - 行业热度：热门行业
+   - 涨停原因：有实质利好
+   
+   组合策略：
+   - 结合MACD指标
+   - 结合筹码分布
+   - 结合主力资金
+
+10. 形态变种
+    一字板停机坪：
+    - 连续一字涨停
+    - 开板后横盘
+    - 风险更高
+    
+    T字板停机坪：
+    - T字涨停（低开涨停）
+    - 洗盘更充分
+    - 后续空间可能更大
+    
+    涨停未遂：
+    - 接近涨停但未封住
+    - 也可能形成停机坪
+    - 风险相对较小
+
+11. Python知识点
+    - 函数调用：turtle_trade.check_enter()
+    - 日期转换：datetime.strptime()
+    - 数据筛选：data.loc[condition]
+    - 数组遍历：zip()
+    - 条件判断：if not (...)
+    - 布尔运算：and连接多个条件
+
+12. 常见问题
+    Q: 为什么需要放量涨停？
+    A: 缩量涨停可能是主力控盘，但资金量不足
+    
+    Q: 横盘为什么要高开？
+    A: 高开说明主力控盘能力强，避免跳空低开
+    
+    Q: 为什么限制涨跌幅？
+    A: 太大说明不是横盘，是继续上涨或下跌
+    
+    Q: 如何判断横盘结束？
+    A: 放量突破平台上沿，或跌破平台下沿
+
+13. 回测建议
+    - 统计成功率：形态出现后的盈利概率
+    - 计算收益：平均收益率
+    - 分析失败：什么情况下会失败
+    - 优化参数：调整条件阈值
+
+14. 实战技巧
+    - 关注龙头：板块龙头更可靠
+    - 题材热度：热门题材成功率高
+    - 市场情绪：牛市氛围好时使用
+    - 快进快出：短线操作，不恋战
+"""

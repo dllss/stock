@@ -18,13 +18,13 @@ __date__ = '2025/12/31 '
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
 
+"""
+东方财富-ETF 实时行情
+https://quote.eastmoney.com/center/gridlist.html#fund_etf
+:return: ETF 实时行情
+:rtype: pandas.DataFrame
+"""
 def fund_etf_spot_em() -> pd.DataFrame:
-    """
-    东方财富-ETF 实时行情
-    https://quote.eastmoney.com/center/gridlist.html#fund_etf
-    :return: ETF 实时行情
-    :rtype: pandas.DataFrame
-    """
     url = "http://88.push2.eastmoney.com/api/qt/clist/get"
     page_size = 50
     page_current = 1
@@ -115,14 +115,14 @@ def fund_etf_spot_em() -> pd.DataFrame:
     return temp_df
 
 
+"""
+东方财富-ETF 代码和市场标识映射
+https://quote.eastmoney.com/center/gridlist.html#fund_etf
+:return: ETF 代码和市场标识映射
+:rtype: pandas.DataFrame
+"""
 @lru_cache()
 def _fund_etf_code_id_map_em() -> dict:
-    """
-    东方财富-ETF 代码和市场标识映射
-    https://quote.eastmoney.com/center/gridlist.html#fund_etf
-    :return: ETF 代码和市场标识映射
-    :rtype: pandas.DataFrame
-    """
     url = "http://88.push2.eastmoney.com/api/qt/clist/get"
     params = {
         "pn": "1",

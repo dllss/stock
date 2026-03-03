@@ -11,15 +11,15 @@ __date__ = '2025/12/31 '
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
 
+"""
+东方财富网-个股-操盘必读
+https://emweb.securities.eastmoney.com/PC_HSF10/OperationsRequired/Index?type=web&code=SH688041#
+:param symbol: 带市场标识的股票代码
+:type symbol: str
+:return: 操盘必读
+:rtype: pandas.DataFrame
+"""
 def stock_cpbd_em(symbol: str = "688041") -> pd.DataFrame:
-    """
-    东方财富网-个股-操盘必读
-    https://emweb.securities.eastmoney.com/PC_HSF10/OperationsRequired/Index?type=web&code=SH688041#
-    :param symbol: 带市场标识的股票代码
-    :type symbol: str
-    :return: 操盘必读
-    :rtype: pandas.DataFrame
-    """
     url = "https://emweb.securities.eastmoney.com/PC_HSF10/OperationsRequired/PageAjax"
     if symbol.startswith("6"):
         symbol = f"SH{symbol}"
@@ -102,15 +102,15 @@ def stock_cpbd_em(symbol: str = "688041") -> pd.DataFrame:
     # temp_df["已流通股份"] = pd.to_numeric(temp_df["已流通股份"], errors="coerce")
 
 
+"""
+东方财富网-个股-资金流向
+https://data.eastmoney.com/zjlx/688041.html
+:param symbol: 带市场标识的股票代码
+:type symbol: str
+:return: 操盘必读
+:rtype: pandas.DataFrame
+"""
 def stock_zjlx_em(symbol: str = "688041") -> pd.DataFrame:
-    """
-    东方财富网-个股-资金流向
-    https://data.eastmoney.com/zjlx/688041.html
-    :param symbol: 带市场标识的股票代码
-    :type symbol: str
-    :return: 操盘必读
-    :rtype: pandas.DataFrame
-    """
     url = "https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get"
     if symbol.startswith("6"):
         symbol = f"1.{symbol}"

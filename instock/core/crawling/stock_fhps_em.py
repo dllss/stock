@@ -18,15 +18,15 @@ __date__ = '2025/12/31 '
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
 
+"""
+东方财富网-数据中心-年报季报-分红送配
+https://data.eastmoney.com/yjfp/
+:param date: 分红送配报告期
+:type date: str
+:return: 分红送配
+:rtype: pandas.DataFrame
+"""
 def stock_fhps_em(date: str = "20231231") -> pd.DataFrame:
-    """
-    东方财富网-数据中心-年报季报-分红送配
-    https://data.eastmoney.com/yjfp/
-    :param date: 分红送配报告期
-    :type date: str
-    :return: 分红送配
-    :rtype: pandas.DataFrame
-    """
     import warnings
 
     warnings.simplefilter(action="ignore", category=FutureWarning)

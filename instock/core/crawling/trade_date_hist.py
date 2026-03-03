@@ -303,13 +303,13 @@ function d(t) {
 """
 
 
+"""
+交易日历-历史数据
+https://finance.sina.com.cn/realstock/company/klc_td_sh.txt
+:return: 交易日历
+:rtype: pandas.DataFrame
+"""
 def tool_trade_date_hist_sina() -> pd.DataFrame:
-    """
-    交易日历-历史数据
-    https://finance.sina.com.cn/realstock/company/klc_td_sh.txt
-    :return: 交易日历
-    :rtype: pandas.DataFrame
-    """
     url = "https://finance.sina.com.cn/realstock/company/klc_td_sh.txt"
     r = requests.get(url, proxies = proxys().get_proxies())
     js_code = MiniRacer()

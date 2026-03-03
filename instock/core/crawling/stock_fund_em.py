@@ -18,15 +18,15 @@ __date__ = '2025/12/31 '
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
 
+"""
+东方财富网-数据中心-资金流向-排名
+https://data.eastmoney.com/zjlx/detail.html
+:param indicator: choice of {"今日", "3日", "5日", "10日"}
+:type indicator: str
+:return: 指定 indicator 资金流向排行
+:rtype: pandas.DataFrame
+"""
 def stock_individual_fund_flow_rank(indicator: str = "5日") -> pd.DataFrame:
-    """
-    东方财富网-数据中心-资金流向-排名
-    https://data.eastmoney.com/zjlx/detail.html
-    :param indicator: choice of {"今日", "3日", "5日", "10日"}
-    :type indicator: str
-    :return: 指定 indicator 资金流向排行
-    :rtype: pandas.DataFrame
-    """
     indicator_map = {
         "今日": [
             "f62",

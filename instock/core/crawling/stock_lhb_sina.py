@@ -14,15 +14,15 @@ from tqdm import tqdm
 from instock.core.singleton_proxy import proxys
 
 
+"""
+龙虎榜-每日详情
+https://vip.stock.finance.sina.com.cn/q/go.php/vInvestConsult/kind/lhb/index.phtml
+:param date: 交易日
+:type date: str
+:return: 龙虎榜-每日详情
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_detail_daily_sina(date: str = "20240222") -> pd.DataFrame:
-    """
-    龙虎榜-每日详情
-    https://vip.stock.finance.sina.com.cn/q/go.php/vInvestConsult/kind/lhb/index.phtml
-    :param date: 交易日
-    :type date: str
-    :return: 龙虎榜-每日详情
-    :rtype: pandas.DataFrame
-    """
     date = "-".join([date[:4], date[4:6], date[6:]])
     url = "https://vip.stock.finance.sina.com.cn/q/go.php/vInvestConsult/kind/lhb/index.phtml"
     params = {"tradedate": date}
@@ -87,15 +87,15 @@ def _find_last_page(
     return previous_page
 
 
+"""
+龙虎榜-个股上榜统计
+https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/ggtj/index.phtml
+:param symbol: choice of {"5": 最近 5 天; "10": 最近 10 天; "30": 最近 30 天; "60": 最近 60 天;}
+:type symbol: str
+:return: 龙虎榜-个股上榜统计
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_ggtj_sina(symbol: str = "5") -> pd.DataFrame:
-    """
-    龙虎榜-个股上榜统计
-    https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/ggtj/index.phtml
-    :param symbol: choice of {"5": 最近 5 天; "10": 最近 10 天; "30": 最近 30 天; "60": 最近 60 天;}
-    :type symbol: str
-    :return: 龙虎榜-个股上榜统计
-    :rtype: pandas.DataFrame
-    """
     url = (
         "https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/ggtj/index.phtml"
     )
@@ -123,15 +123,15 @@ def stock_lhb_ggtj_sina(symbol: str = "5") -> pd.DataFrame:
     return big_df
 
 
+"""
+龙虎榜-营业部上榜统计
+https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/yytj/index.phtml
+:param symbol: choice of {"5": 最近 5 天; "10": 最近 10 天; "30": 最近 30 天; "60": 最近 60 天;}
+:type symbol: str
+:return: 龙虎榜-营业部上榜统计
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_yytj_sina(symbol: str = "5") -> pd.DataFrame:
-    """
-    龙虎榜-营业部上榜统计
-    https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/yytj/index.phtml
-    :param symbol: choice of {"5": 最近 5 天; "10": 最近 10 天; "30": 最近 30 天; "60": 最近 60 天;}
-    :type symbol: str
-    :return: 龙虎榜-营业部上榜统计
-    :rtype: pandas.DataFrame
-    """
     url = (
         "https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/yytj/index.phtml"
     )
@@ -160,15 +160,15 @@ def stock_lhb_yytj_sina(symbol: str = "5") -> pd.DataFrame:
     return big_df
 
 
+"""
+龙虎榜-机构席位追踪
+https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/jgzz/index.phtml
+:param symbol: choice of {"5": 最近 5 天; "10": 最近 10 天; "30": 最近 30 天; "60": 最近 60 天;}
+:type symbol: str
+:return: 龙虎榜-机构席位追踪
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_jgzz_sina(symbol: str = "5") -> pd.DataFrame:
-    """
-    龙虎榜-机构席位追踪
-    https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/jgzz/index.phtml
-    :param symbol: choice of {"5": 最近 5 天; "10": 最近 10 天; "30": 最近 30 天; "60": 最近 60 天;}
-    :type symbol: str
-    :return: 龙虎榜-机构席位追踪
-    :rtype: pandas.DataFrame
-    """
     url = (
         "https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/jgzz/index.phtml"
     )
@@ -201,13 +201,13 @@ def stock_lhb_jgzz_sina(symbol: str = "5") -> pd.DataFrame:
     return big_df
 
 
+"""
+龙虎榜-机构席位成交明细
+https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/jgmx/index.phtml
+:return: 龙虎榜-机构席位成交明细
+:rtype: pandas.DataFrame
+"""
 def stock_lhb_jgmx_sina() -> pd.DataFrame:
-    """
-    龙虎榜-机构席位成交明细
-    https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/jgmx/index.phtml
-    :return: 龙虎榜-机构席位成交明细
-    :rtype: pandas.DataFrame
-    """
     url = (
         "https://vip.stock.finance.sina.com.cn/q/go.php/vLHBData/kind/jgmx/index.phtml"
     )

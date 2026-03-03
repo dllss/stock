@@ -6,7 +6,6 @@ Desc: 东方财富网-行情首页-沪深京 A 股
 """
 import random
 import time
-
 import pandas as pd
 import math
 from functools import lru_cache
@@ -18,13 +17,13 @@ __date__ = '2025/12/31 '
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
 
+"""
+东方财富网-沪深京 A 股-实时行情
+https://quote.eastmoney.com/center/gridlist.html#hs_a_board
+:return: 实时行情
+:rtype: pandas.DataFrame
+"""
 def stock_zh_a_spot_em() -> pd.DataFrame:
-    """
-    东方财富网-沪深京 A 股-实时行情
-    https://quote.eastmoney.com/center/gridlist.html#hs_a_board
-    :return: 实时行情
-    :rtype: pandas.DataFrame
-    """
     url = "http://82.push2.eastmoney.com/api/qt/clist/get"
     page_size = 50
     page_current = 1
@@ -188,14 +187,14 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
     return temp_df
 
 
+"""
+东方财富-股票和市场代码
+http://quote.eastmoney.com/center/gridlist.html#hs_a_board
+:return: 股票和市场代码
+:rtype: dict
+"""
 @lru_cache()
 def code_id_map_em() -> dict:
-    """
-    东方财富-股票和市场代码
-    http://quote.eastmoney.com/center/gridlist.html#hs_a_board
-    :return: 股票和市场代码
-    :rtype: dict
-    """
     url = "http://80.push2.eastmoney.com/api/qt/clist/get"
     page_size = 50
     page_current = 1
