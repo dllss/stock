@@ -2,16 +2,35 @@
 # -*- coding: utf-8 -*-
 
 import os
+import socket
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib3.util.connection import allowed_gai_family
 from pathlib import Path
 import time
 import random
 from instock.core.singleton_proxy import proxys
 
+# 强制使用 IPv4，东方财富 API 的 IPv6 地址会返回空响应
+import urllib3.util.connection
+urllib3.util.connection.allowed_gai_family = lambda: socket.AF_INET
+
 __author__ = 'myh '
 __date__ = '2025/12/31 '
+
+# 反爬虫延迟配置（秒）
+REQUEST_DELAY_MIN = 4  # 最小延迟时间
+REQUEST_DELAY_MAX = 7  # 最大延迟时间
+RETRY_DELAY_MIN = 5    # 重试前最小延迟时间
+RETRY_DELAY_MAX = 8    # 重试前最大延迟时间
+
+def get_timestamp() -> str:
+    """
+    生成当前时间戳（毫秒）
+    用作API请求的缓存破坏器参数
+    """
+    return str(int(time.time() * 1000))
 
 class eastmoney_fetcher:
     """
@@ -71,12 +90,12 @@ class eastmoney_fetcher:
 
         # 设置请求头
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
             'Referer': 'https://quote.eastmoney.com/',
             'Accept': '*/*',
             'Accept-Language': 'zh-CN,zh;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br, zstd',
             'Connection': 'keep-alive',
+            'Referrer-Policy': 'no-referrer, strict-origin-when-cross-origin',
         }
         session.headers.update(headers)
         # 设置Cookie
@@ -94,6 +113,13 @@ class eastmoney_fetcher:
         """
         for i in range(retry):
             try:
+                # 记录请求开始
+                start_time = time.time()
+                print("\n" + "="*80)
+                print(f"🌐 [GET请求] {url}")
+                if params:
+                    print(f"   📋 参数: {params}")
+                
                 response = self.session.get(
                     url,
                     proxies=self.proxies,
@@ -101,13 +127,41 @@ class eastmoney_fetcher:
                     timeout=timeout
                 )
                 response.raise_for_status()  # 检查HTTP错误
+                
+                # 检查响应内容
+                if not response.text:
+                    print(f"⚠️  警告: 响应内容为空 (状态码: {response.status_code})")
+                    print(f"   可能原因: 反爬虫限制、IP被封、Cookie失效")
+                    raise ValueError("响应内容为空")
+                
+                # 计算耗时
+                elapsed = time.time() - start_time
+                print(f"   ✅ 成功 | 耗时: {elapsed:.2f}秒 | 状态码: {response.status_code} | 内容大小: {len(response.text)}字节")
+                
+                # 请求成功后延迟，避免请求过快被反爬
+                delay = random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX)
+                print(f"   ⏱️  延迟: {delay:.2f}秒（防反爬）")
+                print("="*80)
+                time.sleep(delay)
+                
                 return response
             except requests.exceptions.RequestException as e:
-                print(f"请求错误: {e}, 第 {i + 1}/{retry} 次重试")
+                error_msg = str(e).split('\n')[0][:100]  # 只取第一行，最多100字符
+                print(f"   ❌ 失败 | {error_msg}")
+                print(f"   🔄 重试: 第 {i + 1}/{retry} 次")
                 if i < retry - 1:
-                    # 随机延迟后重试
-                    time.sleep(random.uniform(1, 3))
+                    # 指数退避：重试延迟随失败次数递增
+                    # 第1次失败: 1-3秒, 第2次: 2-6秒, 第3次: 4-12秒...
+                    backoff_factor = 2 ** i
+                    retry_delay = random.uniform(
+                        RETRY_DELAY_MIN * backoff_factor, 
+                        RETRY_DELAY_MAX * backoff_factor
+                    )
+                    print(f"   ⏱️  延迟: {retry_delay:.2f}秒（第{i+1}次重试，指数退避）")
+                    print("="*80)
+                    time.sleep(retry_delay)
                 else:
+                    print("="*80)
                     raise
 
     def make_post_request(self, url, data=None, json=None, params=None, retry=3, timeout=60):
@@ -123,6 +177,19 @@ class eastmoney_fetcher:
         """
         for i in range(retry):
             try:
+                # 记录请求开始
+                start_time = time.time()
+                print("\n" + "="*80)
+                print(f"🌐 [POST请求] {url}")
+                if params:
+                    key_params = {k: v for k, v in list(params.items())[:5]}
+                    more = f" ...({len(params)-5}个更多参数)" if len(params) > 5 else ""
+                    print(f"   📋 参数: {key_params}{more}")
+                if data:
+                    print(f"   📄 表单数据: {str(data)[:100]}...")
+                if json:
+                    print(f"   📄 JSON数据: {str(json)[:100]}...")
+                
                 response = self.session.post(
                     url,
                     proxies=self.proxies,
@@ -132,13 +199,41 @@ class eastmoney_fetcher:
                     timeout=timeout
                 )
                 response.raise_for_status()  # 检查HTTP错误
+                
+                # 检查响应内容
+                if not response.text:
+                    print(f"⚠️  警告: 响应内容为空 (状态码: {response.status_code})")
+                    print(f"   可能原因: 反爬虫限制、IP被封、Cookie失效")
+                    raise ValueError("响应内容为空")
+                
+                # 计算耗时
+                elapsed = time.time() - start_time
+                print(f"   ✅ 成功 | 耗时: {elapsed:.2f}秒 | 状态码: {response.status_code} | 内容大小: {len(response.text)}字节")
+                
+                # 请求成功后延迟，避免请求过快被反爬
+                delay = random.uniform(REQUEST_DELAY_MIN, REQUEST_DELAY_MAX)
+                print(f"   ⏱️  延迟: {delay:.2f}秒（防反爬）")
+                print("="*80)
+                time.sleep(delay)
+                
                 return response
             except requests.exceptions.RequestException as e:
-                print(f"请求错误: {e}, 第 {i + 1}/{retry} 次重试")
+                error_msg = str(e).split('\n')[0][:100]
+                print(f"   ❌ 失败 | {error_msg}")
+                print(f"   🔄 重试: 第 {i + 1}/{retry} 次")
                 if i < retry - 1:
-                    # 随机延迟后重试
-                    time.sleep(random.uniform(1, 3))
+                    # 指数退避：重试延迟随失败次数递增
+                    # 第1次失败: 1-3秒, 第2次: 2-6秒, 第3次: 4-12秒...
+                    backoff_factor = 2 ** i
+                    retry_delay = random.uniform(
+                        RETRY_DELAY_MIN * backoff_factor, 
+                        RETRY_DELAY_MAX * backoff_factor
+                    )
+                    print(f"   ⏱️  延迟: {retry_delay:.2f}秒（第{i+1}次重试，指数退避）")
+                    print("="*80)
+                    time.sleep(retry_delay)
                 else:
+                    print("="*80)
                     raise
 
     def update_cookie(self, new_cookie):

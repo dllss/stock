@@ -10,7 +10,7 @@ import time
 
 import pandas as pd
 from tqdm import tqdm
-from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.core.eastmoney_fetcher import eastmoney_fetcher, get_timestamp
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
@@ -762,7 +762,7 @@ def stock_lhb_stock_detail_em(
         "sortColumns": flag_map[flag],
         "source": "WEB",
         "client": "WEB",
-        "_": "1647338693644",
+        "_": get_timestamp(),
     }
     r = fetcher.make_request(url, params=params)
     data_json = r.json()

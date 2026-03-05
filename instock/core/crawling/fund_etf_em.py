@@ -10,7 +10,7 @@ import time
 from functools import lru_cache
 import math
 import pandas as pd
-from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.core.eastmoney_fetcher import eastmoney_fetcher, get_timestamp
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
@@ -40,7 +40,7 @@ def fund_etf_spot_em() -> pd.DataFrame:
         "fid": "f12",
         "fs": "b:MK0021,b:MK0022,b:MK0023,b:MK0024",
         "fields": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152",
-        "_": "1672806290972",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
@@ -51,16 +51,15 @@ def fund_etf_spot_em() -> pd.DataFrame:
 
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
-    while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
-        page_current = page_current + 1
-        params["pn"] = page_current
+    
+    # 从第2页开始获取剩余数据（第1页已经获取）
+    for page_num in range(2, page_count + 1):
+        params["pn"] = page_num
+        params["_"] = get_timestamp()  # 更新时间戳
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
-        page_count =page_count - 1
 
     temp_df = pd.DataFrame(data)
     temp_df.rename(
@@ -136,7 +135,7 @@ def _fund_etf_code_id_map_em() -> dict:
         "fid": "f3",
         "fs": "b:MK0021,b:MK0022,b:MK0023,b:MK0024",
         "fields": "f12,f13",
-        "_": "1672806290972",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
@@ -180,7 +179,7 @@ def fund_etf_hist_em(
         "secid": f"{code_id_dict[symbol]}.{symbol}",
         "beg": start_date,
         "end": end_date,
-        "_": "1623766962675",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
@@ -254,7 +253,7 @@ def fund_etf_hist_min_em(
             "ndays": "5",
             "iscr": "0",
             "secid": f"{code_id_dict[symbol]}.{symbol}",
-            "_": "1623766962675",
+            "_": get_timestamp(),
         }
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
@@ -294,7 +293,7 @@ def fund_etf_hist_min_em(
             "secid": f"{code_id_dict[symbol]}.{symbol}",
             "beg": "0",
             "end": "20500000",
-            "_": "1630930917857",
+            "_": get_timestamp(),
         }
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()

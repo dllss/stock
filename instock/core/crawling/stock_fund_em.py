@@ -65,16 +65,14 @@ def stock_individual_fund_flow_rank(indicator: str = "5日") -> pd.DataFrame:
     data = data_json["data"]["diff"]
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
-    while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
-        page_current = page_current + 1
-        params["pn"] = page_current
+    
+    # 从第2页开始获取剩余数据（第1页已经获取）
+    for page_num in range(2, page_count + 1):
+        params["pn"] = page_num
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
-        page_count =page_count - 1
 
     temp_df = pd.DataFrame(data)
     temp_df = temp_df[~temp_df["f2"].isin(["-"])]
@@ -295,17 +293,15 @@ def stock_sector_fund_flow_rank(
 
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
-    while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
-        page_current = page_current + 1
-        params["pn"] = page_current
+    
+    # 从第2页开始获取剩余数据（第1页已经获取）
+    for page_num in range(2, page_count + 1):
+        params["pn"] = page_num
         r = fetcher.make_request(url, params=params)
         text_data = r.text
         json_data = json.loads(text_data[text_data.find("{"): -2])
         _data = json_data["data"]["diff"]
         data.extend(_data)
-        page_count =page_count - 1
 
     temp_df = pd.DataFrame(data)
 

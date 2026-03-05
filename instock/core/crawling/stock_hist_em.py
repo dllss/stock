@@ -8,11 +8,37 @@ import random
 import time
 import pandas as pd
 import math
-from functools import lru_cache
-from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.core.eastmoney_fetcher import eastmoney_fetcher, get_timestamp
+from instock.core.file_cache import file_cached
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
+
+# 东方财富API的ut参数（用户令牌）
+# 获取方法：打开对应页面 -> F12开发者工具 -> Network标签 -> 刷新页面 -> 查看请求中的ut参数
+# 
+# UT_STOCK_LIST - 股票列表接口 (clist/get)
+#   来源页面: https://quote.eastmoney.com/center/gridlist.html#hs_a_board
+#   筛选请求: clist/get
+#   接口示例: http://80.push2.eastmoney.com/api/qt/clist/get
+UT_STOCK_LIST = "fa5fd1943c7b386f172d6893dbfba10b"
+# 
+# UT_STOCK_KLINE - K线历史数据接口 (kline/get)
+#   获取方法：
+#   1. 打开 https://quote.eastmoney.com/sz000001.html
+#   2. F12开发者工具 -> Network标签 -> 清空记录
+#   3. 在页面中点击"分时"旁边的"日K"按钮（切换到K线图）
+#   4. 筛选请求：输入 "kline" 或 "push2his"
+#   5. 找到类似 http://push2his.eastmoney.com/api/qt/stock/kline/get 的请求
+#   6. 查看请求参数中的 ut 值
+#   接口示例: http://push2his.eastmoney.com/api/qt/stock/kline/get
+UT_STOCK_KLINE = UT_STOCK_LIST
+# 
+# UT_STOCK_TRENDS - 分时数据接口 (trends2/get)
+#   来源页面: https://quote.eastmoney.com/sz000001.html (打开任意股票页面，查看分时图标签)
+#   筛选请求: trends2/get
+#   接口示例: http://push2his.eastmoney.com/api/qt/stock/trends2/get
+UT_STOCK_TRENDS = UT_STOCK_LIST
 
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
@@ -32,15 +58,16 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
         "pz": page_size,
         "po": "1",
         "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "ut": UT_STOCK_LIST,
         "fltt": "2",
         "invt": "2",
         "fid": "f12",
         "fs": "m:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23,m:0 t:81 s:2048",
         "fields": "f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f14,f15,f16,f17,f18,f20,f21,f22,f23,f24,f25,f26,f37,f38,f39,f40,f41,f45,f46,f48,f49,f57,f61,f100,f112,f113,f114,f115,f221",
-        "_": "1623833739532",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
+    
     data_json = r.json()
     data = data_json["data"]["diff"]
     if not data:
@@ -48,16 +75,15 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
 
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
-    while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(2, 2.5))
-        page_current = page_current + 1
-        params["pn"] = page_current
+    
+    # 从第2页开始获取剩余数据（第1页已经获取）
+    for page_num in range(2, page_count + 1):
+        params["pn"] = page_num
+        params["_"] = get_timestamp()  # 更新时间戳
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
-        page_count =page_count - 1
 
     temp_df = pd.DataFrame(data)
     temp_df.columns = [
@@ -190,122 +216,167 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
 """
 东方财富-股票和市场代码
 http://quote.eastmoney.com/center/gridlist.html#hs_a_board
+使用文件缓存，缓存有效期为24小时
 :return: 股票和市场代码
 :rtype: dict
 """
-@lru_cache()
+@file_cached('code_id_map_em')  # 使用默认7天缓存
 def code_id_map_em() -> dict:
+    """
+    获取所有沪深北A股的股票代码和市场ID映射
+    
+    市场ID说明：
+    - 1: 上海市场 (6xxxxx, 688xxx 等)
+    - 0: 深圳市场 (000xxx, 001xxx, 002xxx, 003xxx 等)
+    - 0: 北京市场 (430xxx, 830xxx 等)
+    
+    返回格式: {"000001": 0, "600000": 1, ...}
+    """
     url = "http://80.push2.eastmoney.com/api/qt/clist/get"
     page_size = 50
+    code_id_dict = {}
+    
+    # ============================================================
+    # 第一部分：获取上海市场股票 (market_id = 1)
+    # fs参数说明: m:1 t:2 (上海A股), m:1 t:23 (上海科创板)
+    # ============================================================
     page_current = 1
     params = {
         "pn": page_current,
         "pz": page_size,
         "po": "1",
         "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "ut": UT_STOCK_LIST,
         "fltt": "2",
         "invt": "2",
         "fid": "f12",
-        "fs": "m:1 t:2,m:1 t:23",
+        "fs": "m:1 t:2,m:1 t:23",  # 上海A股 + 科创板
         "fields": "f12",
-        "_": "1623833739532",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     data = data_json["data"]["diff"]
+    print(f"📊 上海市场股票数据 (首页前10条): {data[:10] if data else []}")
+    
     if not data:
         return dict()
 
+    # 计算上海市场总页数并获取所有分页数据
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
-    while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
-        page_current = page_current + 1
-        params["pn"] = page_current
+    print(f"   上海市场共 {data_count} 只股票，需要获取 {page_count} 页")
+    
+    # 从第2页开始获取剩余数据（第1页已经获取）
+    for page_num in range(2, page_count + 1):
+        params["pn"] = page_num
+        params["_"] = get_timestamp()  # 更新时间戳
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
-        page_count =page_count - 1
 
+    # 保存上海市场的股票代码映射
     temp_df = pd.DataFrame(data)
     temp_df["market_id"] = 1
     temp_df.columns = ["sh_code", "sh_id"]
     code_id_dict = dict(zip(temp_df["sh_code"], temp_df["sh_id"]))
+    print(f"   ✅ 上海市场获取完成，共 {len(code_id_dict)} 只股票")
+    
+    # ============================================================
+    # 第二部分：获取深圳市场股票 (market_id = 0)
+    # fs参数说明: m:0 t:6 (深圳A股主板), m:0 t:80 (深圳创业板)
+    # 重要：000001 平安银行就在这个市场中
+    # ============================================================
     page_current = 1
     params = {
         "pn": page_current,
         "pz": page_size,
         "po": "1",
         "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "ut": UT_STOCK_LIST,
         "fltt": "2",
         "invt": "2",
         "fid": "f12",
-        "fs": "m:0 t:6,m:0 t:80",
+        "fs": "m:0 t:6,m:0 t:80",  # 深圳主板 + 创业板
         "fields": "f12",
-        "_": "1623833739532",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     data = data_json["data"]["diff"]
+    print(f"📊 深圳市场股票数据 (首页前10条): {data[:10] if data else []}")
+    
     if not data:
         return dict()
 
+    # 计算深圳市场总页数并获取所有分页数据
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
-    while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
-        page_current = page_current + 1
-        params["pn"] = page_current
+    print(f"   深圳市场共 {data_count} 只股票，需要获取 {page_count} 页")
+    
+    # 从第2页开始获取剩余数据（第1页已经获取）
+    for page_num in range(2, page_count + 1):
+        params["pn"] = page_num
+        params["_"] = get_timestamp()  # 更新时间戳
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
-        page_count =page_count - 1
 
+    # 保存深圳市场的股票代码映射（追加到字典中）
     temp_df_sz = pd.DataFrame(data)
     temp_df_sz["sz_id"] = 0
     code_id_dict.update(dict(zip(temp_df_sz["f12"], temp_df_sz["sz_id"])))
+    print(f"   ✅ 深圳市场获取完成，共 {len(temp_df_sz)} 只股票")
+    
+    # ============================================================
+    # 第三部分：获取北京市场股票 (market_id = 0)
+    # fs参数说明: m:0 t:81 s:2048 (北交所股票)
+    # ============================================================
     page_current = 1
     params = {
         "pn": page_current,
         "pz": page_size,
         "po": "1",
         "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "ut": UT_STOCK_LIST,
         "fltt": "2",
         "invt": "2",
         "fid": "f12",
-        "fs": "m:0 t:81 s:2048",
+        "fs": "m:0 t:81 s:2048",  # 北交所
         "fields": "f12",
-        "_": "1623833739532",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     data = data_json["data"]["diff"]
+    print(f"📊 北京市场股票数据 (首页前10条): {data[:10] if data else []}")
+    
     if not data:
         return dict()
 
+    # 计算北京市场总页数并获取所有分页数据
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
-    while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
-        page_current = page_current + 1
-        params["pn"] = page_current
+    print(f"   北京市场共 {data_count} 只股票，需要获取 {page_count} 页")
+    
+    # 从第2页开始获取剩余数据（第1页已经获取）
+    for page_num in range(2, page_count + 1):
+        params["pn"] = page_num
+        params["_"] = get_timestamp()  # 更新时间戳
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
-        page_count =page_count - 1
 
+    # 保存北京市场的股票代码映射（追加到字典中）
     temp_df_sz = pd.DataFrame(data)
     temp_df_sz["bj_id"] = 0
     code_id_dict.update(dict(zip(temp_df_sz["f12"], temp_df_sz["bj_id"])))
+    print(f"   ✅ 北京市场获取完成，共 {len(temp_df_sz)} 只股票")
+    print(f"🎉 所有市场获取完成，总共 {len(code_id_dict)} 只股票")
+    
     return code_id_dict
 
 
@@ -339,13 +410,13 @@ def stock_zh_a_hist(
     params = {
         "fields1": "f1,f2,f3,f4,f5,f6",
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
-        "ut": "7eea3edcaed734bea9cbfc24409ed989",
+        "ut": UT_STOCK_KLINE,
         "klt": period_dict[period],
         "fqt": adjust_dict[adjust],
         "secid": f"{code_id_dict[symbol]}.{symbol}",
         "beg": start_date,
         "end": end_date,
-        "_": "1623766962675",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
@@ -418,11 +489,11 @@ def stock_zh_a_hist_min_em(
         params = {
             "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
-            "ut": "7eea3edcaed734bea9cbfc24409ed989",
+            "ut": UT_STOCK_KLINE,
             "ndays": "5",
             "iscr": "0",
             "secid": f"{code_id_dict[symbol]}.{symbol}",
-            "_": "1623766962675",
+            "_": get_timestamp(),
         }
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
@@ -456,13 +527,13 @@ def stock_zh_a_hist_min_em(
         params = {
             "fields1": "f1,f2,f3,f4,f5,f6",
             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
-            "ut": "7eea3edcaed734bea9cbfc24409ed989",
+            "ut": UT_STOCK_KLINE,
             "klt": period,
             "fqt": adjust_map[adjust],
             "secid": f"{code_id_dict[symbol]}.{symbol}",
             "beg": "0",
             "end": "20500000",
-            "_": "1630930917857",
+            "_": get_timestamp(),
         }
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
@@ -536,12 +607,12 @@ def stock_zh_a_hist_pre_min_em(
     params = {
         "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
-        "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+        "ut": UT_STOCK_TRENDS,
         "ndays": "1",
         "iscr": "1",
         "iscca": "0",
         "secid": f"{code_id_dict[symbol]}.{symbol}",
-        "_": "1623766962675",
+        "_": get_timestamp(),
     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
@@ -579,38 +650,20 @@ if __name__ == "__main__":
     stock_zh_a_spot_em_df = stock_zh_a_spot_em()
     print(stock_zh_a_spot_em_df)
 
-    code_id_map_em_df = code_id_map_em()
-    print(code_id_map_em_df)
+    # code_id_map_em_df = code_id_map_em()
+    # print(code_id_map_em_df)
 
-    stock_zh_a_hist_df = stock_zh_a_hist(
-        symbol="000001",
-        period="daily",
-        start_date="20220516",
-        end_date="20220722",
-        adjust="hfq",
-    )
-    print(stock_zh_a_hist_df)
+    # stock_zh_a_hist_df = stock_zh_a_hist(
+    #     symbol="000001",
+    #     period="daily",
+    #     start_date="20220516",
+    #     end_date="20220516",
+    #     adjust="qfq",
+    # )
+    # print(stock_zh_a_hist_df)
 
-    stock_zh_a_hist_min_em_df = stock_zh_a_hist_min_em(symbol="000001", period="1")
-    print(stock_zh_a_hist_min_em_df)
+    # stock_zh_a_hist_min_em_df = stock_zh_a_hist_min_em(symbol="000001", period="1")
+    # print(stock_zh_a_hist_min_em_df)
 
-    stock_zh_a_hist_pre_min_em_df = stock_zh_a_hist_pre_min_em(symbol="000001")
-    print(stock_zh_a_hist_pre_min_em_df)
-
-    stock_zh_a_spot_em_df = stock_zh_a_spot_em()
-    print(stock_zh_a_spot_em_df)
-
-    stock_zh_a_hist_min_em_df = stock_zh_a_hist_min_em(
-        symbol="000001", period='1'
-    )
-    print(stock_zh_a_hist_min_em_df)
-
-    stock_zh_a_hist_df = stock_zh_a_hist(
-        symbol="000001",
-        period="daily",
-        start_date="20170301",
-        end_date="20211115",
-        adjust="hfq",
-    )
-    print(stock_zh_a_hist_df)
-
+    # stock_zh_a_hist_pre_min_em_df = stock_zh_a_hist_pre_min_em(symbol="000001")
+    # print(stock_zh_a_hist_pre_min_em_df)

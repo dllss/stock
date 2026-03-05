@@ -45,16 +45,14 @@ def stock_selection() -> pd.DataFrame:
 
     data_count = data_json["result"]["count"]
     page_count = math.ceil(data_count/page_size)
-    while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
-        page_current = page_current + 1
-        params["p"] = page_current
+    
+    # 从第2页开始获取剩余数据（第1页已经获取）
+    for page_num in range(2, page_count + 1):
+        params["p"] = page_num
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["result"]["data"]
         data.extend(_data)
-        page_count =page_count - 1
 
     temp_df = pd.DataFrame(data)
 
