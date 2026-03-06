@@ -60,6 +60,9 @@ def stock_individual_fund_flow_rank(indicator: str = "5日") -> pd.DataFrame:
         "fs": "m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2",
         "fields": indicator_map[indicator][1],
     }
+    # API 请求: 获取个股资金流向排名数据（第1页）
+    # 入参: url=clist/get接口, fs=全市场股票筛选, fields=资金流向相关字段, sort按指定指标排序
+    # 出参: {data: {diff: [资金流向数据数组], total: 总数}}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     data = data_json["data"]["diff"]
@@ -69,6 +72,9 @@ def stock_individual_fund_flow_rank(indicator: str = "5日") -> pd.DataFrame:
     # 从第2页开始获取剩余数据（第1页已经获取）
     for page_num in range(2, page_count + 1):
         params["pn"] = page_num
+        # API 请求: 获取个股资金流向排名数据（分页）
+        # 入参: pn=页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
@@ -286,6 +292,9 @@ def stock_sector_fund_flow_rank(
         "cb": "jQuery18308357908311220152_1589256588824",
         "_": int(time.time() * 1000),
     }
+    # API 请求: 获取板块资金流向排名数据（第1页）
+    # 入参: url=clist/get接口, fs=板块筛选(行业板块/概念板块/地域板块), fields=资金流向字段
+    # 出参: {data: {diff: [板块资金流向数组], total: 总数}}
     r = fetcher.make_request(url, params=params)
     text_data = r.text
     data_json = json.loads(text_data[text_data.find("{") : -2])
@@ -297,6 +306,9 @@ def stock_sector_fund_flow_rank(
     # 从第2页开始获取剩余数据（第1页已经获取）
     for page_num in range(2, page_count + 1):
         params["pn"] = page_num
+        # API 请求: 获取板块资金流向排名数据（分页）
+        # 入参: pn=页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         text_data = r.text
         json_data = json.loads(text_data[text_data.find("{"): -2])

@@ -45,6 +45,9 @@ def stock_lhb_detail_em(
         "client": "WEB",
         "filter": f"(TRADE_DATE<='{end_date}')(TRADE_DATE>='{start_date}')",
     }
+    # API 请求: 获取龙虎榜每日统计数据（第1页）
+    # 入参: url=龙虎榜统计接口, 日期参数
+    # 出参: {data: [龙虎榜统计数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page_num = data_json["result"]["pages"]
@@ -57,6 +60,9 @@ def stock_lhb_detail_em(
                 "pageNumber": page,
             }
         )
+        # API 请求: 获取龙虎榜每日统计数据（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
@@ -163,6 +169,9 @@ def stock_lhb_stock_statistic_em(symbol: str = "近一月") -> pd.DataFrame:
         "client": "WEB",
         "filter": f'(STATISTICS_CYCLE="{symbol_map[symbol]}")',
     }
+    # API 请求: 获取龙虎榜营业部排行
+    # 入参: url=营业部排行接口, 日期范围参数
+    # 出参: {data: [营业部排行数组]}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
@@ -250,6 +259,9 @@ def stock_lhb_jgmmtj_em(
         "client": "WEB",
         "filter": f"(TRADE_DATE>='{start_date}')(TRADE_DATE<='{end_date}')",
     }
+    # API 请求: 获取机构龙虎榜统计
+    # 入参: url=机构统计接口, 日期参数
+    # 出参: {data: [机构统计数组]}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
@@ -346,6 +358,9 @@ def stock_lhb_jgstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
         "client": "WEB",
         "filter": f'(STATISTICSCYCLE="{symbol_map[symbol]}")',
     }
+    # API 请求: 获取个股龙虎榜详情（第1页）
+    # 入参: url=个股龙虎榜接口, 股票代码参数
+    # 出参: {data: [个股龙虎榜数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
@@ -354,6 +369,9 @@ def stock_lhb_jgstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
         # 添加随机延迟，避免爬取过快
         time.sleep(random.uniform(1, 1.5))
         params.update({"pageNumber": page})
+        # API 请求: 获取个股龙虎榜详情（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
@@ -446,6 +464,9 @@ def stock_lhb_hyyyb_em(
         "client": "WEB",
         "filter": f"(ONLIST_DATE>='{start_date}')(ONLIST_DATE<='{end_date}')",
     }
+    # API 请求: 获取营业部龙虎榜明细（第1页）
+    # 入参: url=营业部明细接口, 营业部代码参数
+    # 出参: {data: [营业部明细数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
@@ -455,6 +476,9 @@ def stock_lhb_hyyyb_em(
         # 添加随机延迟，避免爬取过快
         time.sleep(random.uniform(1, 1.5))
         params.update({"pageNumber": page})
+        # API 请求: 获取营业部龙虎榜明细（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
@@ -527,6 +551,9 @@ def stock_lhb_yybph_em(symbol: str = "近一月") -> pd.DataFrame:
         "client": "WEB",
         "filter": f'(STATISTICSCYCLE="{symbol_map[symbol]}")',
     }
+    # API 请求: 获取机构龙虎榜明细（第1页）
+    # 入参: url=机构明细接口, 日期范围参数
+    # 出参: {data: [机构明细数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
@@ -535,6 +562,9 @@ def stock_lhb_yybph_em(symbol: str = "近一月") -> pd.DataFrame:
         # 添加随机延迟，避免爬取过快
         time.sleep(random.uniform(1, 1.5))
         params.update({"pageNumber": page})
+        # API 请求: 获取机构龙虎榜明细（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
@@ -635,6 +665,9 @@ def stock_lhb_traderstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
         "client": "WEB",
         "filter": f'(STATISTICSCYCLE="{symbol_map[symbol]}")',
     }
+    # API 请求: 获取龙虎榜活跃股统计（第1页）
+    # 入参: url=活跃股统计接口, 统计周期参数
+    # 出参: {data: [活跃股统计数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
@@ -643,6 +676,9 @@ def stock_lhb_traderstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
         # 添加随机延迟，避免爬取过快
         time.sleep(random.uniform(1, 1.5))
         params.update({"pageNumber": page})
+        # API 请求: 获取龙虎榜活跃股统计（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
@@ -706,6 +742,9 @@ def stock_lhb_stock_detail_date_em(symbol: str = "600077") -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
+    # API 请求: 获取龙虎榜上榜原因统计
+    # 入参: url=上榜原因接口, 日期参数
+    # 出参: {data: [上榜原因统计数组]}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
@@ -764,6 +803,9 @@ def stock_lhb_stock_detail_em(
         "client": "WEB",
         "_": get_timestamp(),
     }
+    # API 请求: 获取个股龙虎榜详细数据
+    # 入参: url=个股详情接口, 股票代码和排序参数
+    # 出参: {data: [个股详细龙虎榜数据]}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])

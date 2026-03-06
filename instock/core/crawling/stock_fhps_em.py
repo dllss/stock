@@ -26,6 +26,9 @@ https://data.eastmoney.com/yjfp/
 :return: 分红送配
 :rtype: pandas.DataFrame
 """
+    # API 请求: 获取分红派息数据
+    # 入参: url=fhps接口, 股票代码symbol相关参数
+    # 出参: {data: [分红派息记录数组]}
 def stock_fhps_em(date: str = "20231231") -> pd.DataFrame:
     import warnings
 
@@ -47,6 +50,9 @@ def stock_fhps_em(date: str = "20231231") -> pd.DataFrame:
     }
 
     r = fetcher.make_request(url, params=params)
+    # API 请求: 获取分红派息详细信息
+    # 入参: url=fhps详情接口, 特定股票的分红记录
+    # 出参: {data: {详细分红信息}}
     data_json = r.json()
     total_pages = int(data_json["result"]["pages"])
     big_df = pd.DataFrame()

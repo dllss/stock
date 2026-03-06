@@ -66,6 +66,25 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
         "fields": "f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f14,f15,f16,f17,f18,f20,f21,f22,f23,f24,f25,f26,f37,f38,f39,f40,f41,f45,f46,f48,f49,f57,f61,f100,f112,f113,f114,f115,f221",
         "_": get_timestamp(),
     }
+    
+    # API 请求: 获取沪深京A股实时行情数据（第1页）
+    # 入参:
+    #   - url: http://82.push2.eastmoney.com/api/qt/clist/get (东方财富行情列表接口)
+    #   - params: {
+    #       pn: 页码,
+    #       pz: 每页数量,
+    #       fs: 市场筛选 (m:0 t:6 深圳主板, m:0 t:80 创业板, m:1 t:2 上海主板, m:1 t:23 科创板, m:0 t:81 s:2048 北交所),
+    #       fields: 返回字段 (f2=最新价, f3=涨跌幅, f12=代码, f14=名称等40+字段),
+    #       ut: 用户令牌,
+    #       _: 时间戳（防缓存）
+    #     }
+    # 出参:
+    #   - response.json(): {
+    #       "data": {
+    #         "diff": [股票行情数据数组],
+    #         "total": 总股票数量
+    #       }
+    #     }
     r =  fetcher.make_request(url, params=params)
     
     data_json = r.json()
@@ -80,6 +99,10 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
     for page_num in range(2, page_count + 1):
         params["pn"] = page_num
         params["_"] = get_timestamp()  # 更新时间戳
+        
+        # API 请求: 获取沪深京A股实时行情数据（分页数据）
+        # 入参: 同第1页请求，pn 和 _ 参数已更新为当前页码和最新时间戳
+        # 出参: 同第1页响应结构
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
@@ -254,6 +277,22 @@ def code_id_map_em() -> dict:
         "fields": "f12",
         "_": get_timestamp(),
     }
+    
+    # API 请求: 获取上海市场股票代码列表（第1页）
+    # 入参:
+    #   - url: http://80.push2.eastmoney.com/api/qt/clist/get
+    #   - params: {
+    #       fs: "m:1 t:2,m:1 t:23" (上海A股 + 科创板),
+    #       fields: "f12" (只获取股票代码字段),
+    #       pn, pz, ut, _: 同 stock_zh_a_spot_em 接口
+    #     }
+    # 出参:
+    #   - response.json(): {
+    #       "data": {
+    #         "diff": [{"f12": "股票代码"}, ...],
+    #         "total": 上海市场总股票数
+    #       }
+    #     }
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     data = data_json["data"]["diff"]
@@ -271,6 +310,10 @@ def code_id_map_em() -> dict:
     for page_num in range(2, page_count + 1):
         params["pn"] = page_num
         params["_"] = get_timestamp()  # 更新时间戳
+        
+        # API 请求: 获取上海市场股票代码列表（分页数据）
+        # 入参: 同第1页请求，pn 和 _ 参数已更新
+        # 出参: 同第1页响应结构
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
@@ -302,6 +345,12 @@ def code_id_map_em() -> dict:
         "fields": "f12",
         "_": get_timestamp(),
     }
+    # API 请求: 获取深圳市场股票代码列表（第1页）
+    # 入参: url=clist/get接口, params包含fs=深圳市场筛选, fields=f12股票代码
+    # 出参: {data: {diff: [{f12: 代码}...], total: 总数}}
+    # API 请求: 获取深圳市场股票代码列表（第1页）
+    # 入参: url=clist/get接口, params包含fs=深圳市场筛选, fields=f12股票代码
+    # 出参: {data: {diff: [{f12: 代码}...], total: 总数}}
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     data = data_json["data"]["diff"]
@@ -319,6 +368,9 @@ def code_id_map_em() -> dict:
     for page_num in range(2, page_count + 1):
         params["pn"] = page_num
         params["_"] = get_timestamp()  # 更新时间戳
+        # API 请求: 获取深圳市场股票代码列表（分页）
+        # 入参: pn=页码, _=时间戳已更新
+        # 出参: 同第1页
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
@@ -348,6 +400,9 @@ def code_id_map_em() -> dict:
         "fields": "f12",
         "_": get_timestamp(),
     }
+    # API 请求: 获取北京市场股票代码列表（第1页）
+    # 入参: url=clist/get接口, params包含fs=北交所筛选, fields=f12股票代码
+    # 出参: {data: {diff: [{f12: 代码}...], total: 总数}}
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     data = data_json["data"]["diff"]
@@ -365,6 +420,9 @@ def code_id_map_em() -> dict:
     for page_num in range(2, page_count + 1):
         params["pn"] = page_num
         params["_"] = get_timestamp()  # 更新时间戳
+        # API 请求: 获取北京市场股票代码列表（分页）
+        # 入参: pn=页码, _=时间戳已更新
+        # 出参: 同第1页
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
@@ -418,6 +476,9 @@ def stock_zh_a_hist(
         "end": end_date,
         "_": get_timestamp(),
     }
+    # API 请求: 获取股票历史K线数据
+    # 入参: url=kline/get接口, secid=市场ID.股票代码, beg/end=起止日期, klt=周期, fqt=复权类型
+    # 出参: {data: {klines: ['日期,开,收,高,低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率'...]}}
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     if not (data_json["data"] and data_json["data"]["klines"]):
@@ -495,6 +556,9 @@ def stock_zh_a_hist_min_em(
             "secid": f"{code_id_dict[symbol]}.{symbol}",
             "_": get_timestamp(),
         }
+        # API 请求: 获取股票分钟K线数据（近5日）
+        # 入参: url=trends2/get接口, secid=市场ID.股票代码, ndays=5, iscr=0(不复权)
+        # 出参: {data: {trends: ['时间,价格,成交量,成交额,均价'...]}}
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(
@@ -535,6 +599,9 @@ def stock_zh_a_hist_min_em(
             "end": "20500000",
             "_": get_timestamp(),
         }
+        # API 请求: 获取股票分钟K线数据（指定周期）
+        # 入参: url=kline/get接口, secid=市场ID.股票代码, klt=周期(1/5/15/30/60分钟), beg/end=日期范围
+        # 出参: {data: {klines: ['时间,开,收,高,低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率'...]}}
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(
@@ -614,6 +681,9 @@ def stock_zh_a_hist_pre_min_em(
         "secid": f"{code_id_dict[symbol]}.{symbol}",
         "_": get_timestamp(),
     }
+    # API 请求: 获取股票盘前分钟数据
+    # 入参: url=trends2/get接口, secid=市场ID.股票代码, iscr=1(盘前), iscca=0
+    # 出参: {data: {predata: ['时间,价格,成交量,成交额,均价'...]}}
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(

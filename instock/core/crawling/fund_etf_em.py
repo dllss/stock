@@ -42,6 +42,9 @@ def fund_etf_spot_em() -> pd.DataFrame:
         "fields": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152",
         "_": get_timestamp(),
     }
+    # API 请求: 获取ETF基金实时行情数据（第1页）
+    # 入参: url=clist/get接口, fs=ETF市场筛选(MK0021-0024), fields=40+字段(价格/涨跌幅/成交量等)
+    # 出参: {data: {diff: [ETF行情数组], total: 总数}}
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
 
@@ -56,6 +59,9 @@ def fund_etf_spot_em() -> pd.DataFrame:
     for page_num in range(2, page_count + 1):
         params["pn"] = page_num
         params["_"] = get_timestamp()  # 更新时间戳
+        # API 请求: 获取ETF基金实时行情数据（分页）
+        # 入参: pn=页码, _=时间戳已更新
+        # 出参: 同第1页
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         _data = data_json["data"]["diff"]
@@ -137,6 +143,9 @@ def _fund_etf_code_id_map_em() -> dict:
         "fields": "f12,f13",
         "_": get_timestamp(),
     }
+    # API 请求: 获取ETF基金代码和市场ID映射
+    # 入参: url=clist/get接口, fs=ETF市场筛选, fields=f12(代码)+f13(市场)
+    # 出参: {data: {diff: [{f12: 代码, f13: 市场ID}...]}}
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["data"]["diff"])
@@ -181,6 +190,9 @@ def fund_etf_hist_em(
         "end": end_date,
         "_": get_timestamp(),
     }
+    # API 请求: 获取ETF基金历史K线数据
+    # 入参: url=kline/get接口, secid=市场ID.基金代码, beg/end=起止日期, klt=周期, fqt=复权类型
+    # 出参: {data: {klines: ['日期,开,收,高,低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率'...]}}
     r =  fetcher.make_request(url, params=params)
     data_json = r.json()
     if not (data_json["data"] and data_json["data"]["klines"]):
@@ -255,6 +267,9 @@ def fund_etf_hist_min_em(
             "secid": f"{code_id_dict[symbol]}.{symbol}",
             "_": get_timestamp(),
         }
+        # API 请求: 获取ETF基金分钟K线数据（近5日）
+        # 入参: url=trends2/get接口, secid=市场ID.基金代码, ndays=5
+        # 出参: {data: {trends: ['时间,价格,成交量,成交额,均价'...]}}
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(
@@ -295,6 +310,9 @@ def fund_etf_hist_min_em(
             "end": "20500000",
             "_": get_timestamp(),
         }
+        # API 请求: 获取ETF基金分钟K线数据（指定周期）
+        # 入参: url=kline/get接口, secid=市场ID.基金代码, klt=周期(1/5/15/30/60分钟)
+        # 出参: {data: {klines: ['时间,开,收,高,低,成交量,成交额'...]}}
         r =  fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(

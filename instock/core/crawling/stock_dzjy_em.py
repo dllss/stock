@@ -35,6 +35,9 @@ def stock_dzjy_sctj() -> pd.DataFrame:
         'source': 'WEB',
         'client': 'WEB',
     }
+    # API 请求: 获取大宗交易数据（第1页）
+    # 入参: url=大宗交易接口, 市场/日期筛选参数
+    # 出参: {data: [大宗交易记录数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page = int(data_json['result']["pages"])
@@ -43,6 +46,9 @@ def stock_dzjy_sctj() -> pd.DataFrame:
         # 添加随机延迟，避免爬取过快
         time.sleep(random.uniform(1, 1.5))
         params.update({'pageNumber': page})
+        # API 请求: 获取大宗交易数据（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json['result']["data"])
@@ -103,6 +109,9 @@ def stock_dzjy_mrmx(symbol: str = '基金', start_date: str = '20220104', end_da
         'client': 'WEB',
         'filter': f"""(SECURITY_TYPE_WEB={symbol_map[symbol]})(TRADE_DATE>='{'-'.join([start_date[:4], start_date[4:6], start_date[6:]])}')(TRADE_DATE<='{'-'.join([end_date[:4], end_date[4:6], end_date[6:]])}')"""
     }
+    # API 请求: 获取大宗交易明细数据
+    # 入参: url=大宗交易明细接口, 股票代码和日期
+    # 出参: {data: [交易明细数组]}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     if not data_json['result']["data"]:
@@ -220,6 +229,9 @@ def stock_dzjy_mrtj(start_date: str = '20220105', end_date: str = '20220105') ->
         'client': 'WEB',
         'filter': f"(TRADE_DATE>='{'-'.join([start_date[:4], start_date[4:6], start_date[6:]])}')(TRADE_DATE<='{'-'.join([end_date[:4], end_date[4:6], end_date[6:]])}')"
     }
+    # API 请求: 获取大宗交易统计汇总
+    # 入参: url=大宗交易统计接口, 统计维度参数
+    # 出参: {data: [统计数据数组]}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json['result']["data"])
@@ -297,6 +309,9 @@ def stock_dzjy_hygtj(symbol: str = '近三月') -> pd.DataFrame:
         'client': 'WEB',
         'filter': f'(DATE_TYPE_CODE={period_map[symbol]})',
     }
+    # API 请求: 获取机构席位数据（第1页）
+    # 入参: url=机构席位接口, 日期范围参数
+    # 出参: {data: [机构席位数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page = data_json['result']["pages"]
@@ -305,6 +320,9 @@ def stock_dzjy_hygtj(symbol: str = '近三月') -> pd.DataFrame:
         # 添加随机延迟，避免爬取过快
         time.sleep(random.uniform(1, 1.5))
         params.update({"pageNumber": page})
+        # API 请求: 获取机构席位数据（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json['result']["data"])
@@ -394,6 +412,9 @@ def stock_dzjy_hyyybtj(symbol: str = '近3日') -> pd.DataFrame:
         'client': 'WEB',
         'filter': f'(N_DATE=-{period_map[symbol]})',
     }
+    # API 请求: 获取营业部排行数据（第1页）
+    # 入参: url=营业部排行接口, 排序字段参数
+    # 出参: {data: [营业部排行数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page = data_json['result']["pages"]
@@ -402,6 +423,9 @@ def stock_dzjy_hyyybtj(symbol: str = '近3日') -> pd.DataFrame:
         # 添加随机延迟，避免爬取过快
         time.sleep(random.uniform(1, 1.5))
         params.update({"pageNumber": page})
+        # API 请求: 获取营业部排行数据（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json['result']["data"])
@@ -469,6 +493,9 @@ def stock_dzjy_yybph(symbol: str = '近三月') -> pd.DataFrame:
         'client': 'WEB',
         'filter': f'(N_DATE=-{period_map[symbol]})',
     }
+    # API 请求: 获取折溢价率数据（第1页）
+    # 入参: url=折溢价率接口, 市场筛选参数
+    # 出参: {data: [折溢价率数组], total: 总数}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     total_page = data_json['result']["pages"]
@@ -477,6 +504,9 @@ def stock_dzjy_yybph(symbol: str = '近三月') -> pd.DataFrame:
         # 添加随机延迟，避免爬取过快
         time.sleep(random.uniform(1, 1.5))
         params.update({"pageNumber": page})
+        # API 请求: 获取折溢价率数据（分页）
+        # 入参: 页码已更新
+        # 出参: 同第1页
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json['result']["data"])

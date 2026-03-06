@@ -37,6 +37,9 @@ def stock_selection() -> pd.DataFrame:
         "client": "WEB"
     }
 
+    # API 请求: 获取股票精选数据（第1页）
+    # 入参: url=dcapi/get接口, p=页码, ps=每页数量, token=访问令牌
+    # 出参: {result: {data: [精选股票数组], count: 总数}}
     r = fetcher.make_request(url, params=params)
     data_json = r.json()
     data = data_json["result"]["data"]
@@ -45,6 +48,9 @@ def stock_selection() -> pd.DataFrame:
 
     data_count = data_json["result"]["count"]
     page_count = math.ceil(data_count/page_size)
+        # API 请求: 获取股票精选数据（分页）
+        # 入参: p=页码已更新
+        # 出参: 同第1页
     
     # 从第2页开始获取剩余数据（第1页已经获取）
     for page_num in range(2, page_count + 1):
@@ -85,6 +91,9 @@ def stock_selection_params():
         "p": 1,
         "ps": 1000,
         "source": "SELECT_SECURITIES",
+    # API 请求: 获取股票精选详细信息
+    # 入参: url=dcapi/get接口, 特定的查询参数
+    # 出参: {result: {data: [详细信息数组]}}
         "client": "WEB"
     }
 

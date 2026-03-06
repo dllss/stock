@@ -40,6 +40,9 @@ def stock_cpbd_em(symbol: str = "688041") -> pd.DataFrame:
         data_dict = {**data_dict, **zxzbOther}
 
     # zxzbhq = data_json["zxzbhq"]  # 其它指标,计算出来
+    # API 请求: 获取筹码分布数据
+    # 入参: url=筹码分布接口, 股票代码和日期参数
+    # 出参: {data: [筹码分布数据数组]}
     # if len(zxzbhq) > 0:
     #     data_dict = {**data_dict, **zxzbhq}
 
@@ -65,6 +68,9 @@ def stock_cpbd_em(symbol: str = "688041") -> pd.DataFrame:
         lhbd["LHBD_DATE"] = lhbd.pop("TRADE_DATE")
         data_dict = {**data_dict, **lhbd}
 
+    # API 请求: 获取筹码分布历史数据
+    # 入参: url=筹码历史接口, 股票代码和时间范围
+    # 出参: {data: [历史筹码分布数组]}
     dzjy = data_json["dzjy"]  # 大宗交易
     if len(dzjy) > 0:
         dzjy = dzjy[0]
