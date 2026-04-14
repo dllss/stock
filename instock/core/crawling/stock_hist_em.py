@@ -471,7 +471,7 @@ def stock_zh_a_hist(
         "ut": UT_STOCK_KLINE,
         "klt": period_dict[period],
         "fqt": adjust_dict[adjust],
-        "secid": f"{code_id_dict[symbol]}.{symbol}",
+        "secid": f"1.{symbol}" if symbol.startswith('6') else f"0.{symbol}",
         "beg": start_date,
         "end": end_date,
         "_": get_timestamp(),
@@ -553,7 +553,7 @@ def stock_zh_a_hist_min_em(
             "ut": UT_STOCK_KLINE,
             "ndays": "5",
             "iscr": "0",
-            "secid": f"{code_id_dict[symbol]}.{symbol}",
+            "secid": f"1.{symbol}" if symbol.startswith('6') else f"0.{symbol}",
             "_": get_timestamp(),
         }
         # API 请求: 获取股票分钟K线数据（近5日）
@@ -594,7 +594,7 @@ def stock_zh_a_hist_min_em(
             "ut": UT_STOCK_KLINE,
             "klt": period,
             "fqt": adjust_map[adjust],
-            "secid": f"{code_id_dict[symbol]}.{symbol}",
+            "secid": f"1.{symbol}" if symbol.startswith('6') else f"0.{symbol}",
             "beg": "0",
             "end": "20500000",
             "_": get_timestamp(),
@@ -678,7 +678,7 @@ def stock_zh_a_hist_pre_min_em(
         "ndays": "1",
         "iscr": "1",
         "iscca": "0",
-        "secid": f"{code_id_dict[symbol]}.{symbol}",
+        "secid": f"1.{symbol}" if symbol.startswith('6') else f"0.{symbol}",
         "_": get_timestamp(),
     }
     # API 请求: 获取股票盘前分钟数据
