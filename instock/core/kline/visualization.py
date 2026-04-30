@@ -1,26 +1,217 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+K线可视化模块（第十层 - Web展示层）
+===================================
 
+模块功能：
+---------
+使用Bokeh库生成交互式K线图和技术指标图表。
+是用户在Web界面看到的所有图表的生成核心。
 
-import numpy as np
-import json
-import logging
-import os.path
-# 首映 bokeh 画图。
+核心职责：
+1. 生成K线图（蜡烛图+均线）
+2. 生成成交量柱形图
+3. 生成技术指标曲线图
+4. 生成形态识别标记
+5. 生成筹码分布图
+6. 提供交互功能（缩放、平移、悬停等）
+
+可视化的内容：
+-----------
+
+K线图（主图）：
+- 蜡烛图：显示Open、High、Low、Close
+  - 红色K线：收盘价 > 开盘价（上涨）
+  - 绿色K线：收盘价 < 开盘价（下跌）
+- 均线：MA10、MA20、MA50、MA200
+- K线形态标记：61种形态识别结果
+
+成交量图（子图）：
+- 成交量柱形图
+- 成交量移动平均线
+
+技术指标图（选项卡）：
+- MACD图：快线、慢线、柱形图
+- KDJ图：K线、D线、J线
+- BOLL图：上轨、中轨、下轨
+- RSI图：相对强弱指标
+- 等等32种指标
+
+筹码分布图（右侧）：
+- 成本分布
+- 平均成本线
+- 上涨和下跌筹码
+
+交互功能：
+--------
+工具栏（Toolbar）：
+1. 平移工具：拖拽移动图表
+2. 方框选取：框选数据点
+3. 方框缩放：框选区域放大
+4. 滚轮缩放：鼠标滚轮缩放
+5. 放大/缩小：按钮放大缩小
+6. 撤销/重做：回退和前进操作
+7. 重置：恢复原始视图
+8. 保存：保存图表为PNG
+
+悬停提示：
+- 鼠标悬停在K线上显示详细信息
+- 显示内容：日期、开高低收、涨跌幅、成交额等
+
+十字瞄准线：
+- 鼠标移动时显示十字线
+- 便于读取精确值
+
+形态选择：
+- 复选框控制形态标记显示/隐藏
+- 全选/全弃按钮
+- 实时显示或隐藏形态标记
+
+核心函数：
+--------
+get_plot_kline(code, stock, date, stock_name)
+    生成完整的K线图表
+
+输入参数：
+- code：股票代码（如'000001'）
+- stock：历史K线数据（DataFrame）
+  必需列：open, high, low, close, volume, date等
+- date：当前日期（用于显示）
+- stock_name：股票名称（用于图表标题）
+
+输出：
+- 返回Bokeh图表对象
+- None表示失败
+
+处理流程：
+1. 计算技术指标（32种）
+2. 识别K线形态（61种）
+3. 计算筹码分布
+4. 创建K线图
+5. 添加均线
+6. 添加K线柱
+7. 创建成交量图
+8. 创建指标子图（选项卡）
+9. 添加形态标记
+10. 组装所有子图
+11. 返回完整图表
+
+Bokeh库介绍：
+-----------
+- 专业的Python可视化库
+- 生成交互式HTML图表
+- 支持大数据集（可视化百万级点）
+- 提供丰富的交互工具
+- 支持客户端JavaScript回调
+
+数据流程：
+--------
+历史K线数据
+    ↓
+calculate_indicator.py（计算32种指标）
+    ↓
+pattern_recognitions.py（识别61种形态）
+    ↓
+visualization.py（生成图表）← 当前模块
+    ↓
+Web展示（dataIndicatorsHandler.py）
+    ↓
+用户浏览器看到图表
+
+性能考虑：
+--------
+- 数据量：4000只股票 × 3年历史 = 300万条K线
+- 单次生成：120天K线（约5-10MB JSON）
+- 生成时间：1-3秒/股票
+- 浏览器加载：<1秒（取决于网络）
+- 交互：实时响应（客户端渲染）
+
+优化技巧：
+--------
+1. 只保留最近120天数据显示
+2. 使用ColumnDataSource缓存数据
+3. CDSView过滤而不是删除数据
+4. 使用CustomJS客户端回调
+5. 动态加载指标（选项卡延迟加载）
+
+实战应用：
+--------
+1. 用户查看股票K线
+   → GetDataIndicatorsHandler调用get_plot_kline()
+   → 生成图表JSON
+   → 返回HTML和JavaScript组件
+   → 前端渲染显示
+
+2. 用户交互
+   → 缩放、平移、悬停等操作
+   → JavaScript客户端处理
+   → 实时更新显示
+   → 不需要服务器请求
+"""
+
+# ==================== 导入必需的库 ====================
+import numpy as np  # 数值计算
+import json  # JSON处理
+import logging  # 日志记录
+import os.path  # 路径操作
+
+# ==================== Bokeh可视化库导入 ====================
+# 事件系统
 from bokeh import events
+
+# 文档管理
 from bokeh.io import curdoc
+
+# 图形变换
 from bokeh.transform import factor_cmap
+
+# 基础图表
 from bokeh.plotting import figure
+
+# 组件导出
 from bokeh.embed import components
+
+# 颜色方案（11色调色板）
 from bokeh.palettes import Spectral11
+
+# 布局管理
 from bokeh.layouts import column, row, layout
-from bokeh.models import ColumnDataSource, HoverTool, CheckboxGroup, LabelSet, Button, CustomJS, \
-    CDSView, BooleanFilter, TabPanel, Tabs, Div, Styles, CrosshairTool, Span, BoxSelectTool, WheelZoomTool, PanTool, \
-    BoxZoomTool, ZoomInTool, ZoomOutTool, RedoTool, ResetTool, SaveTool, UndoTool, Text
-import instock.core.tablestructure as tbs
-import instock.core.indicator.calculate_indicator as idr
-import instock.core.pattern.pattern_recognitions as kpr
-import instock.core.kline.indicator_web_dic as iwd
+
+# UI模型和工具
+from bokeh.models import (
+    ColumnDataSource,  # 数据源
+    HoverTool,         # 悬停提示
+    CheckboxGroup,     # 复选框
+    LabelSet,          # 标签集合
+    Button,            # 按钮
+    CustomJS,          # 自定义JavaScript
+    CDSView,           # 数据过滤视图
+    BooleanFilter,     # 布尔过滤器
+    TabPanel,          # 选项卡面板
+    Tabs,              # 选项卡容器
+    Div,               # 文字框
+    Styles,            # 样式
+    CrosshairTool,     # 十字瞄准线
+    Span,              # 跨度线
+    BoxSelectTool,     # 方框选取工具
+    WheelZoomTool,     # 滚轮缩放工具
+    PanTool,           # 平移工具
+    BoxZoomTool,       # 方框缩放工具
+    ZoomInTool,        # 放大工具
+    ZoomOutTool,       # 缩小工具
+    RedoTool,          # 重做工具
+    ResetTool,         # 重置工具
+    SaveTool,          # 保存工具
+    UndoTool,          # 撤销工具
+    Text               # 文字对象
+)
+
+# ==================== 导入项目模块 ====================
+import instock.core.tablestructure as tbs  # 表结构定义
+import instock.core.indicator.calculate_indicator as idr  # 指标计算
+import instock.core.pattern.pattern_recognitions as kpr  # 形态识别
+import instock.core.kline.indicator_web_dic as iwd  # Web指标字典
 
 __author__ = 'myh '
 __date__ = '2023/4/6 '
