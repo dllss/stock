@@ -141,6 +141,12 @@ def prepare(date):
         if date.strftime("%Y-%m-%d") != data.iloc[0]['date']:
             data['date'] = date_str
         
+        # 准备插入数据
+        logging.info(f"💾 准备插入数据到表: {table_name} (K线形态)")
+        logging.info(f"   目标日期: {date}")
+        logging.info(f"   数据量: {len(data)}条记录")
+        logging.info(f"   开始插入数据...")
+        
         # ==================== 步骤7: 插入数据库 ====================
         mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
         

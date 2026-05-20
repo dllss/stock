@@ -37,8 +37,8 @@ Python新手需要了解的概念：
 import logging  # 日志记录
 import os.path  # 文件路径处理
 import datetime  # 日期时间处理
+import pandas as pd  # 数据处理库
 import numpy as np  # 数值计算库
-import pandas as pd  # 数据分析库（DataFrame）
 import talib as tl  # 技术分析库（TA-Lib）
 import instock.core.tablestructure as tbs  # 数据表结构定义
 import instock.lib.trade_time as trd  # 交易时间处理
@@ -263,7 +263,11 @@ def fetch_etfs(date):
         # 从tablestructure模块获取标准列名
         data.columns = list(tbs.TABLE_CN_ETF_SPOT['columns'])
         
-        # 步骤4: 过滤数据
+        # 步骤4: 确保价格列为数值类型
+        # pd.to_numeric(errors='coerce')：将不能转换的值设为NaN
+        data['new_price'] = pd.to_numeric(data['new_price'], errors='coerce')
+        
+        # 步骤5: 过滤数据
         # data.loc[条件]：根据条件筛选行
         # apply()：对每个元素应用函数
         # 只保留价格有效的ETF
@@ -310,12 +314,27 @@ print(stock_600000[['name', 'new_price', 'change_rate']])
 """
 def fetch_stocks(date):
     try:
+        # 记录开始时间
+        import time
+        start_time = time.time()
+        
         # 步骤1: 调用爬虫获取A股实时数据
         data = she.stock_zh_a_spot_em()
         
-        # 检查数据是否有效
-        if data is None or len(data.index) == 0:
+        # 计算耗时
+        elapsed_time = time.time() - start_time
+        
+        # 详细检查返回数据
+        if data is None:
+            logging.error("❌ stock_zh_a_spot_em() 返回 None")
             return None
+        
+        if len(data.index) == 0:
+            logging.error(f"❌ 返回的 DataFrame 为空，行数: {len(data)}")
+            logging.error(f"   DataFrame 列名: {data.columns.tolist()}")
+            return None
+        
+        logging.info(f"✅ 成功获取 {len(data)} 条股票数据")
         
         # 步骤2: 添加日期列
         if date is None:
@@ -331,10 +350,18 @@ def fetch_stocks(date):
         # 先过滤出A股，再过滤出价格有效的
         data = data.loc[data['code'].apply(is_a_stock)].loc[data['new_price'].apply(is_open)]
         
+        logging.info(f"✅ 过滤后剩余 {len(data)} 条有效数据")
+        
+        # 计算总耗时（包括抓取+过滤）
+        elapsed_time = time.time() - start_time
+        logging.info(f"⏱️  股票实时数据抓取耗时: {elapsed_time:.2f}秒 | 📋 目标表: cn_stock_spot (股票实时行情)")
         return data
         
     except Exception as e:
-        logging.error(f"stockfetch.fetch_stocks处理异常：{e}")
+        import traceback
+        logging.error(f"❌ stockfetch.fetch_stocks处理异常：{e}")
+        logging.error(f"   异常类型: {type(e).__name__}")
+        logging.error(f"   堆栈跟踪:\n{traceback.format_exc()}")
     return None
 
 
@@ -488,6 +515,7 @@ print("今日资金流入最多的5个行业：")
 print(top_sectors[['name', 'fund_amount']])
 """
 def fetch_stocks_sector_fund_flow(index_sector, index_indicator):
+    import logging
     try:
         # 步骤1: 获取配置
         cn_flow = tbs.CN_STOCK_SECTOR_FUND_FLOW[1][index_indicator]
@@ -508,7 +536,7 @@ def fetch_stocks_sector_fund_flow(index_sector, index_indicator):
         return data
         
     except Exception as e:
-        logging.error(f"stockfetch.fetch_stocks_sector_fund_flow处理异常：{e}")
+        logging.error(f"stockfetch.fetch_stocks_sector_fund_flow处理异常：{e}", exc_info=True)
     return None
 
 
@@ -658,12 +686,12 @@ def fetch_stock_lhb_data(date,count=12):
         data = sle.stock_lhb_detail_em(start_date, end_date)
         if data is None or len(data.index) == 0:
             return None
-        _columns = list(tbs.TABLE_CN_STOCK_lHB['columns'])
+        _columns = list(tbs.TABLE_CN_STOCK_LHB['columns'])
         _columns.pop(0)
         data.columns = _columns
         data = data.loc[data['code'].apply(is_a_stock)]
         data.drop_duplicates('code', keep='last', inplace=True)
-        # data = data.sort_values(by='ranking_times', ascending=False)
+        # data = data.sort_values(by='ranking_date', ascending=False)
         if date is None:
             data.insert(0, 'date', datetime.datetime.now().strftime("%Y-%m-%d"))
         else:
@@ -1073,7 +1101,7 @@ print(f"最低价：{hist_data['low'].min()}")
 """
 def fetch_stock_hist(data_base, date_start=None, is_cache=True):
     # 解析参数
-    date = data_base[0]
+    date = data_base[0]  # 结束日期 (YYYY-MM-DD格式)
     code = data_base[1]
 
     # 如果没有指定开始日期，自动计算
@@ -1081,17 +1109,24 @@ def fetch_stock_hist(data_base, date_start=None, is_cache=True):
         date_start, is_cache = trd.get_trade_hist_interval(date)
     
     try:
-        # 步骤1: 调用带缓存的获取函数
-        data = stock_hist_cache(code, date_start, None, is_cache, 'qfq')
+        # 【关键修复】传入正确的结束日期
+        # date: 结束日期 (YYYY-MM-DD格式)，例如 '2026-05-15'
+        # date_start: 开始日期 (YYYYMMDD格式)，例如 '20230516'
+        data = stock_hist_cache(code, date_start, date, is_cache, 'qfq')
         
         # 步骤2: 数据处理
         if data is not None:
-            # 计算涨跌幅
-            data.loc[:, 'p_change'] = tl.ROC(data['close'].values, 1)
-            data['p_change'].values[np.isnan(data['p_change'].values)] = 0.0
+            # 计算涨跌幅（使用copy避免只读问题）
+            data = data.copy(deep=True)
+            
+            # 计算p_change列
+            close_values = data['close'].values.copy()
+            p_change = tl.ROC(close_values, 1)
+            data['p_change'] = p_change
+            data['p_change'] = data['p_change'].fillna(0.0)
             
             # 成交量单位转换
-            data["volume"] = data['volume'].values.astype('double') * 100
+            data["volume"] = data['volume'].astype('double') * 100
         
         return data
         
@@ -1135,76 +1170,76 @@ pickle vs CSV：
 - 本系统使用pickle+gzip，兼顾速度和空间
 """
 def stock_hist_cache(code, date_start, date_end=None, is_cache=True, adjust=''):
-    # 步骤1: 构建缓存目录路径
-    # date_start[0:6]：提取年月，如"202401"
-    cache_dir = os.path.join(stock_hist_cache_path, date_start[0:6], date_start)
+    """
+    获取股票历史K线数据（优化版：只从数据库读取）
     
-    # 步骤2: 创建缓存目录（如果不存在）
+    参数说明：
+        code: 股票代码
+        date_start: 开始日期 (YYYYMMDD)
+        date_end: 结束日期 (可选)
+        is_cache: 是否使用缓存（已废弃，保留兼容性）
+        adjust: 复权类型（已废弃，数据库中已是前复权数据）
+    
+    返回：
+        DataFrame: 历史K线数据，格式与 stock_zh_a_hist 一致
+    """
     try:
-        if not os.path.exists(cache_dir):
-            # makedirs：创建多级目录
-            os.makedirs(cache_dir)
-    except Exception:
-        # 创建失败不影响程序运行（不使用缓存）
-        pass
-    
-    # 步骤3: 构建缓存文件路径
-    # 文件名格式：代码+复权类型.gzip.pickle
-    # 例如：600000qfq.gzip.pickle
-    cache_file = os.path.join(cache_dir, "%s%s.gzip.pickle" % (code, adjust))
-    
-    # 步骤4: 尝试读取缓存或抓取数据
-    try:
-        # 检查缓存文件是否存在
-        if os.path.isfile(cache_file):
-            # 缓存存在，直接读取
-            # compression="gzip"：使用gzip解压缩
-            return pd.read_pickle(cache_file, compression="gzip")
+        # 【强制】只从数据库读取历史数据
+        import instock.lib.database as mdb
+        import pandas as pd
+        
+        # 计算结束日期（默认使用 date_start 作为结束日期）
+        if date_end is None:
+            # date_start 格式是 YYYYMMDD，转换为 YYYY-MM-DD
+            end_date_str = f"{date_start[:4]}-{date_start[4:6]}-{date_start[6:8]}"
         else:
-            # 缓存不存在，从网络抓取
-            if date_end is not None:
-                # 指定了结束日期
-                stock = she.stock_zh_a_hist(
-                    symbol=code, 
-                    period="daily", 
-                    start_date=date_start, 
-                    end_date=date_end,
-                    adjust=adjust
-                )
+            # 【修复】处理两种日期格式：YYYYMMDD 或 YYYY-MM-DD
+            if '-' in str(date_end):
+                # 已经是 YYYY-MM-DD 格式，直接使用
+                end_date_str = str(date_end)
             else:
-                # 没有指定结束日期
-                stock = she.stock_zh_a_hist(
-                    symbol=code, 
-                    period="daily", 
-                    start_date=date_start, 
-                    adjust=adjust
-                )
-
-            # 检查数据是否有效
-            if stock is None or len(stock.index) == 0:
-                return None
-            
-            # 重命名列名
-            stock.columns = tuple(tbs.CN_STOCK_HIST_DATA['columns'])
-            
-            # 按日期排序
-            stock = stock.sort_index()
-            
-            # 步骤5: 保存到缓存
-            try:
-                if is_cache:
-                    # to_pickle：保存为pickle格式
-                    # compression="gzip"：使用gzip压缩
-                    stock.to_pickle(cache_file, compression="gzip")
-            except Exception:
-                # 保存失败不影响返回数据
-                pass
-            
-            return stock
-            
+                # YYYYMMDD 格式，需要转换
+                end_date_str = f"{date_end[:4]}-{date_end[4:6]}-{date_end[6:8]}"
+        
+        # 从 cn_stock_spot 表查询历史数据
+        sql = f"""
+            SELECT 
+                `code`,
+                `date`,
+                `open_price` as `open`,
+                `new_price` as `close`,
+                `high_price` as `high`,
+                `low_price` as `low`,
+                `volume` as `volume`,
+                `deal_amount` as `amount`,
+                `amplitude` as `振幅`,
+                `change_rate` as `p_change`,
+                `ups_downs` as `涨跌额`,
+                `turnoverrate` as `换手率`
+            FROM cn_stock_spot
+            WHERE `code` = '{code}'
+              AND `date` <= '{end_date_str}'
+            ORDER BY `date` ASC
+        """
+        
+        df = pd.read_sql(sql, con=mdb.engine())
+        
+        if df is None or len(df) == 0:
+            logging.warning(f"数据库中无 {code} 的历史数据")
+            return None
+        
+        # 【关键】创建副本，避免只读问题
+        df = df.copy(deep=True)
+        
+        # 转换日期格式为字符串（与API返回格式一致）
+        df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+        
+        logging.debug(f"从数据库获取 {code} 的 {len(df)} 天历史数据")
+        return df
+        
     except Exception as e:
         logging.error(f"stockfetch.stock_hist_cache处理异常：{code}代码{e}")
-    return None
+        return None
 
 
 """

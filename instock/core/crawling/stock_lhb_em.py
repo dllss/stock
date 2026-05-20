@@ -1,72 +1,402 @@
 # -*- coding:utf-8 -*-
 # !/usr/bin/env python
 """
-Date: 2022/3/15 17:32
-Desc: 东方财富网-数据中心-龙虎榜单
+东方财富网龙虎榜数据爬虫模块 - 龙虎榜数据分析
+==============================================
+
+功能说明：
+本模块提供从东方财富网抓取股票龙虎榜数据的功能，包括：
+1. 龙虎榜详情（每日上榜股票明细）
+2. 个股上榜统计（近一月/三月/六月/一年）
+3. 营业部上榜统计
+4. 营业部成交排行
+5. 机构席位追踪
+6. 游资席位分析
+
+核心概念：
+龙虎榜是交易所公布的当日异动股票交易信息，反映主力资金的动向。
+
+上榜条件（满足其一即可）：
+1. 日价格振幅达到15%
+2. 日换手率达到20%
+3. 日价格涨幅偏离值达到7%
+4. 日价格跌幅偏离值达到7%
+5. 无涨跌幅限制的股票
+6. 连续三个交易日内涨跌幅偏离值累计达到20%
+
+关键指标：
+1. 龙虎榜净买额 = 买入额 - 卖出额
+   - 正值：净买入（看多）
+   - 负值：净卖出（看空）
+
+2. 净买额占总成交比 = 龙虎榜净买额 / 市场总成交额
+   - 反映龙虎榜资金的影响力
+
+3. 成交额占总成交比 = 龙虎榜成交额 / 市场总成交额
+   - 反映龙虎榜交易的活跃度
+
+4. 上榜后表现：
+   - D1/D2/D5/D10：上榜后1/2/5/10日的涨跌幅
+   - 用于评估上榜后的短期走势
+
+席位类型：
+- 机构席位：基金、保险、社保等机构投资者
+- 游资席位：知名营业部（如银河绍兴、国泰君安上海江苏路等）
+- 沪股通/深股通：北向资金
+- 量化基金：程序化交易席位
+
+使用场景：
+- 追踪主力资金动向
+- 发现热门题材和龙头股
+- 分析游资操作风格
+- 判断短期走势
+- 识别机构建仓行为
+
+数据来源：
+东方财富网 - 数据中心 - 龙虎榜单
 https://data.eastmoney.com/stock/tradedetail.html
+
+核心函数：
+1. stock_lhb_detail_em() - 龙虎榜详情
+2. stock_lhb_stock_statistic_em() - 个股上榜统计
+3. stock_lhb_seat_statistic_em() - 营业部上榜统计
+4. stock_lhb_seat_deal_rank_em() - 营业部成交排行
+5. stock_lhb_jgstatistic_em() - 机构席位追踪
+6. stock_lhb_yybph_em() - 营业部排名
+
+技术特点：
+1. 分页爬取：支持大数据量的分页获取
+2. 随机延迟：避免爬取过快被封IP
+3. 日期范围筛选：支持自定义时间区间
+4. 多维度统计：个股、营业部、机构等
+5. 数据清洗：自动转换数据类型和格式
+
+API参数说明：
+- start_date/end_date：日期范围（格式：YYYYMMDD）
+- symbol：统计周期
+  * "近一月"：最近一个月
+  * "近三月"：最近三个月
+  * "近六月"：最近六个月
+  * "近一年"：最近一年
+
+数据字段说明：
+基础信息：
+- 代码：股票代码
+- 名称：股票名称
+- 上榜日：登上龙虎榜的日期
+- 上榜原因：为何上榜（振幅、换手率等）
+
+价格信息：
+- 收盘价：当日收盘价
+- 涨跌幅：当日涨跌幅百分比
+
+资金流向：
+- 龙虎榜净买额：买入额-卖出额
+- 龙虎榜买入额：买方总金额
+- 龙虎榜卖出额：卖方总金额
+- 龙虎榜成交额：买卖总额
+- 市场总成交额：全市场成交金额
+- 净买额占总成交比：影响力指标
+- 成交额占总成交比：活跃度指标
+
+其他指标：
+- 换手率：当日换手率
+- 流通市值：流通股本×股价
+- 解读：专业分析师点评
+- 上榜后N日：后续表现
+
+使用示例：
+```python
+# 获取最近一周的龙虎榜详情
+df_detail = stock_lhb_detail_em(
+    start_date="20240101",
+    end_date="20240107"
+)
+print(f"共获取 {len(df_detail)} 条记录")
+
+# 筛选机构大额买入的股票
+institution_buy = df_detail[
+    (df_detail['龙虎榜净买额'] > 100000000) &  # 净买额>1亿
+    (df_detail['上榜原因'].str.contains('机构', na=False))
+]
+
+# 获取近一月个股上榜统计
+df_stat = stock_lhb_stock_statistic_em(symbol="近一月")
+print("上榜次数最多的股票:")
+print(df_stat.nlargest(10, '上榜次数'))
+
+# 分析营业部活跃度
+df_seat = stock_lhb_seat_statistic_em(symbol="近一月")
+print("最活跃营业部:")
+print(df_seat.nlargest(10, '上榜次数'))
+```
+
+实战应用：
+
+1. 龙头股识别：
+```python
+# 频繁上榜且涨幅大的股票
+dragon_stocks = df_stat[
+    (df_stat['上榜次数'] >= 3) & 
+    (df_stat['平均涨跌幅'] > 10)
+]
+```
+
+2. 机构动向追踪：
+```python
+# 机构净买入的股票
+institution_inflow = df_detail[
+    df_detail['解读'].str.contains('机构买入', na=False)
+].nlargest(10, '龙虎榜净买额')
+```
+
+3. 游资风格分析：
+```python
+# 某营业部的操作记录
+yyb_trades = df_detail[
+    df_detail['解读'].str.contains('华泰证券深圳益田路', na=False)
+]
+```
+
+注意事项：
+1. 龙虎榜数据T+1日公布（次日晚上）
+2. 只显示前5名买入和前5名卖出席位
+3. 部分席位可能隐藏真实身份
+4. 需要结合其他指标综合判断
+5. API接口可能变化，需要定期维护
+
+性能优化：
+1. 全局fetcher实例：复用连接池
+2. 分页获取：每次5000条数据
+3. 随机延迟：1-1.5秒避免封禁
+4. 批量处理：减少API调用次数
+
+常见问题：
+
+Q: 为什么关注龙虎榜？
+A: 龙虎榜揭示主力资金动向，是短线交易的重要参考
+
+Q: 机构席位和游资席位有什么区别？
+A: 
+- 机构：中长期投资，稳健操作
+- 游资：短线炒作，快进快出
+
+Q: 如何判断是真突破还是假突破？
+A: 
+- 真突破：机构主导 + 持续放量 + 基本面支撑
+- 假突破：游资炒作 + 快速拉升 + 缺乏基本面
+
+Q: 龙虎榜数据滞后吗？
+A: 是的，T+1日公布，但仍是重要参考
+
+依赖关系：
+- pandas：数据处理和DataFrame操作
+- random：生成随机延迟时间
+- time：时间控制（sleep延迟）
+- tqdm：进度条显示
+- instock.core.eastmoney_fetcher：HTTP请求封装
 """
+
 import random
 import time
 
 import pandas as pd
 from tqdm import tqdm
 from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.config.delay_manager import sleep_with_delay
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
 
+# ==================== 全局HTTP请求器 ====================
 # 创建全局实例，供所有函数使用
+# 这样可以复用连接池，提高性能
 fetcher = eastmoney_fetcher()
+
+
+# ==================== 龙虎榜详情 ====================
 
 def stock_lhb_detail_em(
     start_date: str = "20230403", end_date: str = "20230417"
 ) -> pd.DataFrame:
     """
-    东方财富网-数据中心-龙虎榜单-龙虎榜详情
-    https://data.eastmoney.com/stock/tradedetail.html
-    :param start_date: 开始日期
-    :type start_date: str
-    :param end_date: 结束日期
-    :type end_date: str
-    :return: 龙虎榜详情
-    :rtype: pandas.DataFrame
+    获取龙虎榜详情数据
+    
+    功能：
+    从东方财富网获取指定日期范围内的龙虎榜详细信息
+    
+    参数：
+    start_date (str): 开始日期
+        - 格式：YYYYMMDD
+        - 例如："20230403"
+    
+    end_date (str): 结束日期
+        - 格式：YYYYMMDD
+        - 例如："20230417"
+    
+    返回：
+    pd.DataFrame: 包含龙虎榜详情的DataFrame
+    
+    列说明：
+    - 代码：股票代码
+    - 名称：股票名称
+    - 上榜日：登上龙虎榜的日期
+    - 解读：专业分析师点评
+    - 收盘价：当日收盘价
+    - 涨跌幅：当日涨跌幅（%）
+    - 龙虎榜净买额：买入额-卖出额（元）
+    - 龙虎榜买入额：买方总金额（元）
+    - 龙虎榜卖出额：卖方总金额（元）
+    - 龙虎榜成交额：买卖总额（元）
+    - 市场总成交额：全市场成交金额（元）
+    - 净买额占总成交比：净买额/总成交（%）
+    - 成交额占总成交比：龙虎榜成交额/总成交（%）
+    - 换手率：当日换手率（%）
+    - 流通市值：流通股本×股价（元）
+    - 上榜原因：为何上榜（振幅/换手率/偏离值等）
+    - 上榜后1日：上榜后第1日涨跌幅（%）
+    - 上榜后2日：上榜后第2日涨跌幅（%）
+    - 上榜后5日：上榜后第5日涨跌幅（%）
+    - 上榜后10日：上榜后第10日涨跌幅（%）
+    
+    执行流程：
+    1. 转换日期格式（YYYYMMDD → YYYY-MM-DD）
+    2. 构造API请求参数
+    3. 获取第1页数据
+    4. 计算总页数
+    5. 循环获取剩余页面（每次延迟1-1.5秒）
+    6. 合并所有页面数据
+    7. 重命名列（英文→中文）
+    8. 选择并排序需要的列
+    9. 转换数据类型
+    10. 返回结果
+    
+    API说明：
+    URL: https://datacenter-web.eastmoney.com/api/data/v1/get
+    
+    关键参数：
+    - reportName: "RPT_DAILYBILLBOARD_DETAILSNEW"（报表名称）
+    - columns: 返回字段列表（SECURITY_CODE, TRADE_DATE等）
+    - filter: 日期筛选条件
+    - sortColumns: 排序字段（代码升序，日期降序）
+    - pageSize: 每页5000条
+    
+    使用示例：
+    ```python
+    # 获取一周的龙虎榜数据
+    df = stock_lhb_detail_em(
+        start_date="20240101",
+        end_date="20240107"
+    )
+    print(f"共获取 {len(df)} 条记录")
+    
+    # 筛选机构大额买入
+    institution_buy = df[
+        (df['龙虎榜净买额'] > 100000000) &
+        (df['上榜原因'].str.contains('机构', na=False))
+    ]
+    
+    # 查看上榜后表现最好的股票
+    top_performers = df.nlargest(10, '上榜后5日')
+    ```
+    
+    注意事项：
+    1. 日期范围不要太大，避免数据量过大
+    2. 数据是T+1日公布（次日晚上）
+    3. 只包含满足上榜条件的股票
+    4. 部分字段可能为空（如解读）
     """
+    
+    # ==================== 步骤1: 转换日期格式 ====================
+    # API要求日期格式为YYYY-MM-DD，而输入是YYYYMMDD
+    # 使用字符串切片和join进行转换
+    # 例如："20230403" → "2023-04-03"
     start_date = "-".join([start_date[:4], start_date[4:6], start_date[6:]])
     end_date = "-".join([end_date[:4], end_date[4:6], end_date[6:]])
+    
+    # ==================== 步骤2: 构造API请求 ====================
+    # 龙虎榜详情API地址
     url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
+    
+    # 构造请求参数
     params = {
+        # 排序字段：SECURITY_CODE（代码）升序，TRADE_DATE（日期）降序
         "sortColumns": "SECURITY_CODE,TRADE_DATE",
-        "sortTypes": "1,-1",
-        "pageSize": "5000",
-        "pageNumber": "1",
+        "sortTypes": "1,-1",  # 1=升序，-1=降序
+        "pageSize": "5000",   # 每页5000条
+        "pageNumber": "1",    # 第1页
+        # 报表名称：每日龙虎榜详情（新版）
         "reportName": "RPT_DAILYBILLBOARD_DETAILSNEW",
+        # 返回字段列表（逗号分隔）
+        # SECURITY_CODE: 股票代码
+        # SECURITY_NAME_ABBR: 股票简称
+        # TRADE_DATE: 交易日期
+        # CLOSE_PRICE: 收盘价
+        # CHANGE_RATE: 涨跌幅
+        # BILLBOARD_NET_AMT: 龙虎榜净买额
+        # BILLBOARD_BUY_AMT: 龙虎榜买入额
+        # BILLBOARD_SELL_AMT: 龙虎榜卖出额
+        # EXPLANATION: 上榜原因
+        # D1_CLOSE_ADJCHRATE: 上榜后1日涨跌幅
+        # 等等...
         "columns": "SECURITY_CODE,SECUCODE,SECURITY_NAME_ABBR,TRADE_DATE,EXPLAIN,CLOSE_PRICE,CHANGE_RATE,BILLBOARD_NET_AMT,BILLBOARD_BUY_AMT,BILLBOARD_SELL_AMT,BILLBOARD_DEAL_AMT,ACCUM_AMOUNT,DEAL_NET_RATIO,DEAL_AMOUNT_RATIO,TURNOVERRATE,FREE_MARKET_CAP,EXPLANATION,D1_CLOSE_ADJCHRATE,D2_CLOSE_ADJCHRATE,D5_CLOSE_ADJCHRATE,D10_CLOSE_ADJCHRATE,SECURITY_TYPE_CODE",
-        "source": "WEB",
-        "client": "WEB",
+        "source": "WEB",     # 数据来源
+        "client": "WEB",     # 客户端类型
+        # 日期筛选条件
+        # 语法：(字段名<='结束日期')(字段名>='开始日期')
         "filter": f"(TRADE_DATE<='{end_date}')(TRADE_DATE>='{start_date}')",
     }
+    
+    # ==================== 步骤3: 获取第1页数据 ====================
+    # 发送HTTP请求
     r = fetcher.make_request(url, params=params)
+    
+    # 解析JSON响应
     data_json = r.json()
+    
+    # 获取总页数
     total_page_num = data_json["result"]["pages"]
+    
+    # 初始化结果DataFrame
     big_df = pd.DataFrame()
+    
+    # ==================== 步骤4: 循环获取所有页面 ====================
+    # 使用tqdm显示进度条
     for page in range(1, total_page_num + 1):
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
-        params.update(
-            {
-                "pageNumber": page,
-            }
-        )
+        # 添加随机延迟，控制每分钟请求数<10次（间隔9-12秒）
+        sleep_with_delay('normal')
+        
+        # 更新页码参数
+        params.update({
+            "pageNumber": page,
+        })
+        
+        # 发送HTTP请求
         r = fetcher.make_request(url, params=params)
+        
+        # 解析JSON响应
         data_json = r.json()
+        
+        # 提取当前页数据
         temp_df = pd.DataFrame(data_json["result"]["data"])
+        
+        # 合并到总DataFrame
+        # ignore_index=True：重置索引
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-
+    
+    # ==================== 步骤5: 数据清洗和整理 ====================
+    # 重置索引
     big_df.reset_index(inplace=True)
+    
+    # 索引从1开始（更符合阅读习惯）
     big_df["index"] = big_df.index + 1
+    
+    # ==================== 步骤6: 重命名列 ====================
+    # 将英文字段名转换为中文
+    # 使用rename方法，inplace=True表示原地修改
     big_df.rename(
         columns={
-            "index": "-",
+            "index": "-",  # 占位符（不需要的列）
             "SECURITY_CODE": "代码",
             "SECUCODE": "-",
             "SECURITY_NAME_ABBR": "名称",
@@ -91,7 +421,9 @@ def stock_lhb_detail_em(
         },
         inplace=True,
     )
-
+    
+    # ==================== 步骤7: 选择并排序列 ====================
+    # 按照逻辑顺序排列列
     big_df = big_df[
         [
             "代码",
@@ -116,8 +448,13 @@ def stock_lhb_detail_em(
             "上榜后10日",
         ]
     ]
+    
+    # ==================== 步骤8: 转换数据类型 ====================
+    # 日期字段：转换为date类型（只保留日期，去掉时间）
     big_df["上榜日"] = pd.to_datetime(big_df["上榜日"]).dt.date
-
+    
+    # 数值字段：转换为numeric类型
+    # errors="coerce"：转换失败时设为NaN
     big_df["收盘价"] = pd.to_numeric(big_df["收盘价"], errors="coerce")
     big_df["涨跌幅"] = pd.to_numeric(big_df["涨跌幅"], errors="coerce")
     big_df["龙虎榜净买额"] = pd.to_numeric(big_df["龙虎榜净买额"], errors="coerce")
@@ -133,6 +470,8 @@ def stock_lhb_detail_em(
     big_df["上榜后2日"] = pd.to_numeric(big_df["上榜后2日"], errors="coerce")
     big_df["上榜后5日"] = pd.to_numeric(big_df["上榜后5日"], errors="coerce")
     big_df["上榜后10日"] = pd.to_numeric(big_df["上榜后10日"], errors="coerce")
+    
+    # ==================== 步骤9: 返回结果 ====================
     return big_df
 
 
@@ -351,8 +690,8 @@ def stock_lhb_jgstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     for page in tqdm(range(1, total_page + 1), leave=False):
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次（间隔9-12秒）
+        sleep_with_delay('normal')
         params.update({"pageNumber": page})
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
@@ -452,8 +791,8 @@ def stock_lhb_hyyyb_em(
 
     big_df = pd.DataFrame()
     for page in tqdm(range(1, total_page + 1), leave=False):
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次（间隔9-12秒）
+        sleep_with_delay('normal')
         params.update({"pageNumber": page})
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
@@ -532,8 +871,8 @@ def stock_lhb_yybph_em(symbol: str = "近一月") -> pd.DataFrame:
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     for page in tqdm(range(1, total_page + 1), leave=False):
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次（间隔9-12秒）
+        sleep_with_delay('normal')
         params.update({"pageNumber": page})
         r = fetcher.make_request(url, params=params)
         data_json = r.json()
@@ -640,8 +979,8 @@ def stock_lhb_traderstatistic_em(symbol: str = "近一月") -> pd.DataFrame:
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     for page in tqdm(range(1, total_page + 1), leave=False):
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次（间隔9-12秒）
+        sleep_with_delay('normal')
         params.update({"pageNumber": page})
         r = fetcher.make_request(url, params=params)
         data_json = r.json()

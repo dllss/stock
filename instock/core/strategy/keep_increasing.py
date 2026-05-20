@@ -123,6 +123,9 @@ bool:
 """
 def check(code_name, data, date=None, threshold=30):
     
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     # ==================== 步骤1: 数据预处理 ====================
     # 确定计算日期
     if date is None:
@@ -141,7 +144,9 @@ def check(code_name, data, date=None, threshold=30):
 
     # ==================== 步骤2: 计算30日均线 ====================
     # MA30：30日移动平均线（月线）
-    data.loc[:, 'ma30'] = tl.MA(data['close'].values, timeperiod=30)
+    # 【关键修复】确保数据类型为float64，避免talib报错
+    close_values = data['close'].values.astype(np.float64)
+    data.loc[:, 'ma30'] = tl.MA(close_values, timeperiod=30)
     # 处理NaN值
     data['ma30'].values[np.isnan(data['ma30'].values)] = 0.0
 

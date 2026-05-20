@@ -113,6 +113,9 @@ bool:
 """
 def check_volume(code_name, data, date=None, threshold=60):
     
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     # ==================== 步骤1: 数据预处理 ====================
     # 确定计算日期
     if date is None:
@@ -163,7 +166,9 @@ def check_volume(code_name, data, date=None, threshold=60):
     # tl.MA()：移动平均函数
     # data['volume'].values：成交量数组
     # timeperiod=5：5日周期
-    data.loc[:, 'vol_ma5'] = tl.MA(data['volume'].values, timeperiod=5)
+    # 【关键修复】确保数据类型为float64，避免talib报错
+    volume_values = data['volume'].values.astype(np.float64)
+    data.loc[:, 'vol_ma5'] = tl.MA(volume_values, timeperiod=5)
     
     # 处理NaN值（前4天没有5日均值）
     data['vol_ma5'].values[np.isnan(data['vol_ma5'].values)] = 0.0

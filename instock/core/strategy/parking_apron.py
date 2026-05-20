@@ -123,6 +123,9 @@ bool:
 """
 def check(code_name, data, date=None, threshold=15):
     
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     # ==================== 步骤1: 数据预处理 ====================
     origin_data = data  # 保存原始数据（供海龟策略使用）
     

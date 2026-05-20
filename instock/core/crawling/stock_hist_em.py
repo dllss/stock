@@ -8,8 +8,11 @@ import random
 import time
 import pandas as pd
 import math
-from functools import lru_cache
+import json
+import os
+from datetime import datetime, timedelta
 from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.config.delay_manager import sleep_with_delay
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
@@ -40,7 +43,7 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
         "fields": "f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f14,f15,f16,f17,f18,f20,f21,f22,f23,f24,f25,f26,f37,f38,f39,f40,f41,f45,f46,f48,f49,f57,f61,f100,f112,f113,f114,f115,f221",
         "_": "1623833739532",
     }
-    r =  fetcher.make_request(url, params=params)
+    r =  fetcher.make_request(url, params=params, show_detail_log=False)
     data_json = r.json()
     data = data_json["data"]["diff"]
     if not data:
@@ -48,16 +51,20 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
 
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
+    import logging
+    logging.info(f"总共{data_count}条记录，共{page_count}页，每页{page_size}条")
+    print(f"📋 正在获取股票代码列表... (第1/{page_count}页)")
     while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次（从配置文件读取）
+        delay_time = sleep_with_delay('normal')
         page_current = page_current + 1
         params["pn"] = page_current
-        r =  fetcher.make_request(url, params=params)
+        r =  fetcher.make_request(url, params=params, show_detail_log=False)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
         page_count =page_count - 1
+        print(f"📋 正在获取股票代码列表... (第{page_current}/{page_current + page_count - 1}页)")
 
     temp_df = pd.DataFrame(data)
     temp_df.columns = [
@@ -193,8 +200,47 @@ http://quote.eastmoney.com/center/gridlist.html#hs_a_board
 :return: 股票和市场代码
 :rtype: dict
 """
-@lru_cache()
-def code_id_map_em() -> dict:
+def code_id_map_em(use_cache: bool = True, cache_expire_hours: int = 720) -> dict:
+    """
+    获取股票代码与市场ID的映射表（增强版：包含股票名称、行业等信息）
+    
+    参数：
+        use_cache: 是否使用缓存（默认True）
+        cache_expire_hours: 缓存过期时间（小时），默认720小时（30天）
+            - 股票代码变化频率极低，每月更新一次足够
+            - 大幅减少API调用频率，提升性能
+    
+    返回：
+        dict: {股票代码: {name, market_id, market_name, market_code, stock_type, industry, listing_date}} 的映射字典
+    """
+    # 缓存文件路径
+    cache_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cache')
+    cache_file = os.path.join(cache_dir, 'stock_code_map.json')
+    
+    # 尝试从缓存读取
+    if use_cache and os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+                
+            # 检查缓存是否过期
+            cache_time = datetime.fromisoformat(cache_data.get('cache_time', ''))
+            if datetime.now() - cache_time < timedelta(hours=cache_expire_hours):
+                print(f"✅ 从缓存加载股票代码映射表（缓存时间: {cache_time.strftime('%Y-%m-%d %H:%M:%S')}）")
+                code_map = cache_data.get('code_map', {})
+                
+                # 【向后兼容】如果是旧版本（简单数字映射），需要升级
+                if code_map and isinstance(list(code_map.values())[0], int):
+                    print(f"⚠️  检测到旧版本缓存格式，正在升级到新版本...")
+                    return None  # 返回None触发重新获取
+                
+                return code_map
+            else:
+                print(f"⚠️  缓存已过期，重新获取...")
+        except Exception as e:
+            print(f"⚠️  读取缓存失败: {e}，重新获取...")
+    
+    # 从 API 获取数据（增强版：获取名称、行业、上市时间等信息）
     url = "http://80.push2.eastmoney.com/api/qt/clist/get"
     page_size = 50
     page_current = 1
@@ -208,10 +254,10 @@ def code_id_map_em() -> dict:
         "invt": "2",
         "fid": "f12",
         "fs": "m:1 t:2,m:1 t:23",
-        "fields": "f12",
+        "fields": "f12,f14,f45,f57",  # f12:代码, f14:名称, f45:行业, f57:上市时间
         "_": "1623833739532",
     }
-    r =  fetcher.make_request(url, params=params)
+    r =  fetcher.make_request(url, params=params, show_detail_log=False)
     data_json = r.json()
     data = data_json["data"]["diff"]
     if not data:
@@ -219,21 +265,45 @@ def code_id_map_em() -> dict:
 
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
+    print(f"📋 正在获取上海交易所代码... (第1/{page_count}页)")
     while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次
+        delay_time = sleep_with_delay('normal')
         page_current = page_current + 1
         params["pn"] = page_current
-        r =  fetcher.make_request(url, params=params)
+        r =  fetcher.make_request(url, params=params, show_detail_log=False)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
         page_count =page_count - 1
+        print(f"📋 正在获取上海交易所代码... (第{page_current}/{page_current + page_count - 1}页) [延时: {delay_time:.2f}秒]")
 
     temp_df = pd.DataFrame(data)
-    temp_df["market_id"] = 1
-    temp_df.columns = ["sh_code", "sh_id"]
-    code_id_dict = dict(zip(temp_df["sh_code"], temp_df["sh_id"]))
+    # 构造增强的股票信息对象
+    code_id_dict = {}
+    for _, row in temp_df.iterrows():
+        code = row['f12']
+        name = row.get('f14', '')
+        industry = row.get('f45', '')
+        listing_date = str(row.get('f57', '')) if row.get('f57') else ''
+        
+        # 判断股票类型
+        if code.startswith('688'):
+            stock_type = '科创板'
+        elif code.startswith('689'):
+            stock_type = '科创板'
+        else:
+            stock_type = '主板'
+        
+        code_id_dict[code] = {
+            'name': name,
+            'market_id': 1,
+            'market_name': '上海证券交易所',
+            'market_code': 'SH',
+            'stock_type': stock_type,
+            'industry': industry,
+            'listing_date': listing_date
+        }
     page_current = 1
     params = {
         "pn": page_current,
@@ -245,10 +315,10 @@ def code_id_map_em() -> dict:
         "invt": "2",
         "fid": "f12",
         "fs": "m:0 t:6,m:0 t:80",
-        "fields": "f12",
+        "fields": "f12,f14,f45,f57",  # f12:代码, f14:名称, f45:行业, f57:上市时间
         "_": "1623833739532",
     }
-    r =  fetcher.make_request(url, params=params)
+    r =  fetcher.make_request(url, params=params, show_detail_log=False)
     data_json = r.json()
     data = data_json["data"]["diff"]
     if not data:
@@ -256,20 +326,42 @@ def code_id_map_em() -> dict:
 
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
+    print(f"📋 正在获取深圳交易所代码... (第1/{page_count}页)")
     while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次
+        delay_time = sleep_with_delay('normal')
         page_current = page_current + 1
         params["pn"] = page_current
-        r =  fetcher.make_request(url, params=params)
+        r =  fetcher.make_request(url, params=params, show_detail_log=False)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
         page_count =page_count - 1
+        print(f"📋 正在获取深圳交易所代码... (第{page_current}/{page_current + page_count - 1}页) [延时: {delay_time:.2f}秒]")
 
     temp_df_sz = pd.DataFrame(data)
-    temp_df_sz["sz_id"] = 0
-    code_id_dict.update(dict(zip(temp_df_sz["f12"], temp_df_sz["sz_id"])))
+    # 添加深圳交易所股票信息
+    for _, row in temp_df_sz.iterrows():
+        code = row['f12']
+        name = row.get('f14', '')
+        industry = row.get('f45', '')
+        listing_date = str(row.get('f57', '')) if row.get('f57') else ''
+        
+        # 判断股票类型
+        if code.startswith('300') or code.startswith('301'):
+            stock_type = '创业板'
+        else:
+            stock_type = '主板'
+        
+        code_id_dict[code] = {
+            'name': name,
+            'market_id': 0,
+            'market_name': '深圳证券交易所',
+            'market_code': 'SZ',
+            'stock_type': stock_type,
+            'industry': industry,
+            'listing_date': listing_date
+        }
     page_current = 1
     params = {
         "pn": page_current,
@@ -281,10 +373,10 @@ def code_id_map_em() -> dict:
         "invt": "2",
         "fid": "f12",
         "fs": "m:0 t:81 s:2048",
-        "fields": "f12",
+        "fields": "f12,f14,f45,f57",  # f12:代码, f14:名称, f45:行业, f57:上市时间
         "_": "1623833739532",
     }
-    r =  fetcher.make_request(url, params=params)
+    r =  fetcher.make_request(url, params=params, show_detail_log=False)
     data_json = r.json()
     data = data_json["data"]["diff"]
     if not data:
@@ -292,20 +384,81 @@ def code_id_map_em() -> dict:
 
     data_count = data_json["data"]["total"]
     page_count = math.ceil(data_count/page_size)
+    print(f"📋 正在获取北京交易所代码... (第1/{page_count}页)")
     while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次
+        delay_time = sleep_with_delay('normal')
         page_current = page_current + 1
         params["pn"] = page_current
-        r =  fetcher.make_request(url, params=params)
+        r =  fetcher.make_request(url, params=params, show_detail_log=False)
         data_json = r.json()
         _data = data_json["data"]["diff"]
         data.extend(_data)
         page_count =page_count - 1
+        print(f"📋 正在获取北京交易所代码... (第{page_current}/{page_current + page_count - 1}页) [延时: {delay_time:.2f}秒]")
 
-    temp_df_sz = pd.DataFrame(data)
-    temp_df_sz["bj_id"] = 0
-    code_id_dict.update(dict(zip(temp_df_sz["f12"], temp_df_sz["bj_id"])))
+    temp_df_bj = pd.DataFrame(data)
+    # 添加北京交易所股票信息
+    for _, row in temp_df_bj.iterrows():
+        code = row['f12']
+        name = row.get('f14', '')
+        industry = row.get('f45', '')
+        listing_date = str(row.get('f57', '')) if row.get('f57') else ''
+        
+        code_id_dict[code] = {
+            'name': name,
+            'market_id': 2,
+            'market_name': '北京证券交易所',
+            'market_code': 'BJ',
+            'stock_type': '北交所',
+            'industry': industry,
+            'listing_date': listing_date
+        }
+    
+    # 保存到缓存文件
+    try:
+        # 确保缓存目录存在
+        os.makedirs(cache_dir, exist_ok=True)
+        
+        # 计算统计信息
+        sh_count = sum(1 for v in code_id_dict.values() if v['market_id'] == 1)
+        sz_count = sum(1 for v in code_id_dict.values() if v['market_id'] == 0)
+        bj_count = sum(1 for v in code_id_dict.values() if v['market_id'] == 2)
+        
+        # 按类型统计
+        type_count = {}
+        for v in code_id_dict.values():
+            stock_type = v['stock_type']
+            type_count[stock_type] = type_count.get(stock_type, 0) + 1
+        
+        cache_data = {
+            'cache_time': datetime.now().isoformat(),
+            'cache_version': '2.1',
+            'code_map': code_id_dict,
+            'statistics': {
+                'total_count': len(code_id_dict),
+                'by_exchange': {
+                    'shanghai': {'count': sh_count, 'market_id': 1, 'market_code': 'SH'},
+                    'shenzhen': {'count': sz_count, 'market_id': 0, 'market_code': 'SZ'},
+                    'beijing': {'count': bj_count, 'market_id': 2, 'market_code': 'BJ'}
+                },
+                'by_type': type_count
+            },
+            'metadata': {
+                'api_source': '东方财富网',
+                'data_fields': ['f12: 股票代码', 'f14: 股票名称', 'f45: 所处行业', 'f57: 上市时间'],
+                'update_frequency': '每日更新'
+            }
+        }
+        
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"✅ 股票代码映射表已缓存到: {cache_file}")
+        print(f"   共 {len(code_id_dict)} 只股票 (上海:{sh_count}, 深圳:{sz_count}, 北京:{bj_count})")
+    except Exception as e:
+        print(f"⚠️  保存缓存失败: {e}")
+    
     return code_id_dict
 
 
@@ -333,6 +486,12 @@ def stock_zh_a_hist(
     :rtype: pandas.DataFrame
     """
     code_id_dict = code_id_map_em()
+    # 【兼容处理】支持新旧两种格式
+    if isinstance(code_id_dict.get(symbol), dict):
+        market_id = code_id_dict[symbol]['market_id']
+    else:
+        market_id = code_id_dict[symbol]  # 旧格式：直接是数字
+    
     adjust_dict = {"qfq": "1", "hfq": "2", "": "0"}
     period_dict = {"daily": "101", "weekly": "102", "monthly": "103"}
     url = "http://push2his.eastmoney.com/api/qt/stock/kline/get"
@@ -342,7 +501,7 @@ def stock_zh_a_hist(
         "ut": "7eea3edcaed734bea9cbfc24409ed989",
         "klt": period_dict[period],
         "fqt": adjust_dict[adjust],
-        "secid": f"{code_id_dict[symbol]}.{symbol}",
+        "secid": f"{market_id}.{symbol}",
         "beg": start_date,
         "end": end_date,
         "_": "1623766962675",
@@ -408,6 +567,12 @@ def stock_zh_a_hist_min_em(
     :rtype: pandas.DataFrame
     """
     code_id_dict = code_id_map_em()
+    # 【兼容处理】支持新旧两种格式
+    if isinstance(code_id_dict.get(symbol), dict):
+        market_id = code_id_dict[symbol]['market_id']
+    else:
+        market_id = code_id_dict[symbol]  # 旧格式：直接是数字
+    
     adjust_map = {
         "": "0",
         "qfq": "1",
@@ -421,7 +586,7 @@ def stock_zh_a_hist_min_em(
             "ut": "7eea3edcaed734bea9cbfc24409ed989",
             "ndays": "5",
             "iscr": "0",
-            "secid": f"{code_id_dict[symbol]}.{symbol}",
+            "secid": f"{market_id}.{symbol}",
             "_": "1623766962675",
         }
         r =  fetcher.make_request(url, params=params)
@@ -459,7 +624,7 @@ def stock_zh_a_hist_min_em(
             "ut": "7eea3edcaed734bea9cbfc24409ed989",
             "klt": period,
             "fqt": adjust_map[adjust],
-            "secid": f"{code_id_dict[symbol]}.{symbol}",
+            "secid": f"{market_id}.{symbol}",
             "beg": "0",
             "end": "20500000",
             "_": "1630930917857",
@@ -532,6 +697,12 @@ def stock_zh_a_hist_pre_min_em(
     :rtype: pandas.DataFrame
     """
     code_id_dict = code_id_map_em()
+    # 【兼容处理】支持新旧两种格式
+    if isinstance(code_id_dict.get(symbol), dict):
+        market_id = code_id_dict[symbol]['market_id']
+    else:
+        market_id = code_id_dict[symbol]  # 旧格式：直接是数字
+    
     url = "https://push2.eastmoney.com/api/qt/stock/trends2/get"
     params = {
         "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
@@ -540,7 +711,7 @@ def stock_zh_a_hist_pre_min_em(
         "ndays": "1",
         "iscr": "1",
         "iscca": "0",
-        "secid": f"{code_id_dict[symbol]}.{symbol}",
+        "secid": f"{market_id}.{symbol}",
         "_": "1623766962675",
     }
     r =  fetcher.make_request(url, params=params)

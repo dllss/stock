@@ -121,6 +121,18 @@ def prepare(date, strategy):
         if results is None:
             # 没有符合条件的股票
             logging.info(f"策略{strategy['cn']}未筛选到股票：{date}")
+            
+            # 【关键修复】即使没有数据，也要确保表被创建
+            if not mdb.checkTableIsExist(table_name):
+                logging.info(f"📊 创建空表: {table_name} (策略:{strategy['cn']})")
+                # 获取字段类型
+                cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_STRATEGIES[0]['columns'])
+                # 创建空的DataFrame并插入（会创建表结构）
+                empty_df = pd.DataFrame(columns=tuple(tbs.TABLE_CN_STOCK_FOREIGN_KEY['columns']))
+                _columns_backtest = tuple(tbs.TABLE_CN_STOCK_BACKTEST_DATA['columns'])
+                empty_df = pd.concat([empty_df, pd.DataFrame(columns=_columns_backtest)])
+                mdb.insert_db_from_df(empty_df, table_name, cols_type, False, "`date`,`code`")
+                logging.info(f"✅ 空表创建成功: {table_name}")
             return
 
         # ==================== 步骤4: 删除旧数据 ====================
@@ -147,11 +159,20 @@ def prepare(date, strategy):
         _columns_backtest = tuple(tbs.TABLE_CN_STOCK_BACKTEST_DATA['columns'])
         data = pd.concat([data, pd.DataFrame(columns=_columns_backtest)])
         
+        # 【关键修复】pd.concat 可能产生只读的 DataFrame，需要创建副本
+        data = data.copy(deep=True)
+        
         # ==================== 步骤7: 日期处理 ====================
         # 确保日期正确（单例模式可能有问题）
         date_str = date.strftime("%Y-%m-%d")
         if date.strftime("%Y-%m-%d") != data.iloc[0]['date']:
             data['date'] = date_str
+        
+        # 准备插入数据
+        logging.info(f"💾 准备插入数据到表: {table_name} (策略:{strategy.get('cn', '')})")
+        logging.info(f"   目标日期: {date}")
+        logging.info(f"   数据量: {len(data)}条记录")
+        logging.info(f"   开始插入数据...")
         
         # ==================== 步骤8: 插入数据库 ====================
         mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
@@ -219,11 +240,12 @@ def run_check(strategy_fun, table_name, stocks, date, workers=40):
             if is_check_high_tight:
                 # 高而窄的旗形策略：需要额外参数istop
                 # istop：是否近期有机构买入
+                # 【关键修复】为每个股票传递副本，避免多线程竞争导致的只读问题
                 future_to_data = {
                     executor.submit(
                         strategy_fun,  # 策略函数
                         k,  # 股票键(date, code, name)
-                        stocks[k],  # 历史K线
+                        stocks[k].copy(deep=True),  # 【关键修复】传递副本，避免只读问题
                         date=date,  # 日期
                         istop=(k[1] in stock_tops)  # 是否有机构买入
                     ): k 
@@ -231,11 +253,12 @@ def run_check(strategy_fun, table_name, stocks, date, workers=40):
                 }
             else:
                 # 普通策略：不需要额外参数
+                # 【关键修复】为每个股票传递副本，避免多线程竞争导致的只读问题
                 future_to_data = {
                     executor.submit(
                         strategy_fun,  # 策略函数
                         k,  # 股票键
-                        stocks[k],  # 历史K线
+                        stocks[k].copy(deep=True),  # 【关键修复】传递副本，避免只读问题
                         date=date  # 日期
                     ): k 
                     for k in stocks
@@ -253,7 +276,10 @@ def run_check(strategy_fun, table_name, stocks, date, workers=40):
                         
                 except Exception as e:
                     # 单只股票检查失败，记录日志
+                    import traceback
+                    error_trace = traceback.format_exc()
                     logging.error(f"strategy_data_daily_job.run_check处理异常：{stock[1]}代码{e}策略{table_name}")
+                    logging.debug(f"详细堆栈信息:\n{error_trace}")
                     
     except Exception as e:
         # 整体执行异常

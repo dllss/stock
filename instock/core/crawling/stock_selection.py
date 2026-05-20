@@ -7,6 +7,7 @@ import time
 import pandas as pd
 import instock.core.tablestructure as tbs
 from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.config.delay_manager import sleep_with_delay
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
@@ -45,9 +46,12 @@ def stock_selection() -> pd.DataFrame:
 
     data_count = data_json["result"]["count"]
     page_count = math.ceil(data_count/page_size)
+    import logging
+    logging.info(f"综合选股数据：总共{data_count}条记录，共{page_count}页，每页{page_size}条")
+    logging.debug(f"已获取第1/{page_count}页 (累计{len(data)}条)")
     while page_count > 1:
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次
+        delay_time = sleep_with_delay('normal')
         page_current = page_current + 1
         params["p"] = page_current
         r = fetcher.make_request(url, params=params)
@@ -55,6 +59,7 @@ def stock_selection() -> pd.DataFrame:
         _data = data_json["result"]["data"]
         data.extend(_data)
         page_count =page_count - 1
+        logging.debug(f"已获取第{page_current}/{page_current + page_count - 1}页 (累计{len(data)}条) [延迟{delay_time:.1f}秒]")
 
     temp_df = pd.DataFrame(data)
 

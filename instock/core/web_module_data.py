@@ -121,12 +121,13 @@ class web_module_data:
     """
     
     def __init__(self, mode, type, ico, name, table_name, columns, column_names, 
-                 primary_key, is_realtime, order_columns=None, order_by=None):
+                 primary_key, is_realtime, order_columns=None, order_by=None, description=""):
         """
         初始化Web模块配置
         
         参数说明：
             见类的属性说明
+            description (str): 模块详细说明，用于帮助提示
             
         执行流程：
             1. 保存所有配置参数
@@ -148,11 +149,13 @@ class web_module_data:
         self.is_realtime = is_realtime  # 是否实时：决定是否需要刷新
         self.order_by = order_by  # 排序方式：asc或desc
         self.order_columns = order_columns  # 排序列：列索引列表
+        self.description = description  # 模块详细说明
         
         # 自动生成数据接口URL
         # f-string：格式化字符串
         # 前端JavaScript会请求这个URL获取数据
-        self.url = f"/instock/data?table_name={self.table_name}"
+        # 默认使用新页面（AG Grid）
+        self.url = f"/instock/data/aggrid?table_name={self.table_name}"
 
 
 """

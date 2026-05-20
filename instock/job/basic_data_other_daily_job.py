@@ -49,10 +49,14 @@
 
 # ==================== 导入必需的库 ====================
 import logging  # 日志记录
+from datetime import datetime
 import concurrent.futures  # 多线程并发
 import os.path  # 路径操作
 import sys  # 系统操作
 import pandas as pd  # 数据处理
+import random
+import time
+from instock.config.delay_manager import sleep_with_delay
 
 # ==================== 路径配置 ====================
 cpath_current = os.path.dirname(os.path.dirname(__file__))
@@ -87,52 +91,31 @@ __date__ = '2023/3/10 '
 """
 # 每日股票龙虎榜
 def save_nph_stock_lhb_data(date, before=True):
+    """
+    龙虎榜明细数据任务
+    已重构为调用独立任务文件: data_tasks/stock_lhb_job.py
+    """
     if before:
         return
-
-    try:
-        data = stf.fetch_stock_lhb_data(date)
-        if data is None or len(data.index) == 0:
-            return
-
-        table_name = tbs.TABLE_CN_STOCK_lHB['name']
-        # 删除老数据。
-        if mdb.checkTableIsExist(table_name):
-            del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
-            mdb.executeSql(del_sql)
-            cols_type = None
-        else:
-            cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_lHB['columns'])
-        mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
-    except Exception as e:
-        logging.error(f"basic_data_other_daily_job.save_stock_lhb_data处理异常：{e}")
-    stock_spot_buy(date)
-def save_nph_stock_top_data(date, before=True):
-    if before:
-        return
-
-    try:
-        # 抓取龙虎榜数据
-        data = stf.fetch_stock_top_data(date)
-        if data is None or len(data.index) == 0:
-            return
-
-        table_name = tbs.TABLE_CN_STOCK_TOP['name']
-        # 删除老数据
-        if mdb.checkTableIsExist(table_name):
-            del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
-            mdb.executeSql(del_sql)
-            cols_type = None
-        else:
-            cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_TOP['columns'])
-        mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
-        
-        logging.info(f"保存龙虎榜数据成功：{len(data)}条")
-    except Exception as e:
-        logging.error(f"basic_data_other_daily_job.save_stock_top_data处理异常：{e}")
     
-    # 执行基本面选股
+    # 导入并调用独立任务
+    from instock.job.data_tasks import cn_stock_lhb_job
+    cn_stock_lhb_job.save_lhb_detail_data(date, before=False)
+    
+    # 执行基本面选股(保留原有逻辑)
     stock_spot_buy(date)
+
+def save_nph_stock_top_data(date, before=True):
+    """
+    龙虎榜汇总数据任务
+    已重构为调用独立任务文件: data_tasks/stock_top_job.py
+    """
+    if before:
+        return
+    
+    # 导入并调用独立任务
+    from instock.job.data_tasks import cn_stock_top_job
+    cn_stock_top_job.save_lhb_summary_data(date, before=False)
 
 
 # ==================== 2. 保存个股资金流向数据 ====================
@@ -158,52 +141,16 @@ def save_nph_stock_top_data(date, before=True):
 - 判断资金趋势
 """
 def save_nph_stock_fund_flow_data(date, before=True):
+    """
+    个股资金流向数据任务
+    已重构为调用独立任务文件: data_tasks/stock_fund_flow_job.py
+    """
     if before:
         return
-
-    try:
-        # 定义时间周期：0=今日，1=3日，2=5日，3=10日
-        times = tuple(range(4))
-        
-        # 抓取4个周期的资金流向数据
-        results = run_check_stock_fund_flow(times)
-        if results is None:
-            return
-
-        # 合并4个周期的数据
-        for t in times:
-            if t == 0:
-                # 第一个周期（今日），作为基础数据
-                data = results.get(t)
-            else:
-                # 其他周期，合并到基础数据
-                r = results.get(t)
-                if r is not None:
-                    # 删除重复列（name和new_price在第一个周期已有）
-                    r.drop(columns=['name', 'new_price'], inplace=True)
-                    # 按代码合并
-                    data = pd.merge(data, r, on=['code'], how='left')
-
-        if data is None or len(data.index) == 0:
-            return
-
-        # 添加日期列
-        data.insert(0, 'date', date.strftime("%Y-%m-%d"))
-
-        table_name = tbs.TABLE_CN_STOCK_FUND_FLOW['name']
-        # 删除老数据
-        if mdb.checkTableIsExist(table_name):
-            del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
-            mdb.executeSql(del_sql)
-            cols_type = None
-        else:
-            cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_FUND_FLOW['columns'])
-
-        mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
-        
-        logging.info(f"保存个股资金流向数据成功：{len(data)}条")
-    except Exception as e:
-        logging.error(f"basic_data_other_daily_job.save_nph_stock_fund_flow_data处理异常：{e}")
+    
+    # 导入并调用独立任务
+    from instock.job.data_tasks import cn_stock_fund_flow_job
+    cn_stock_fund_flow_job.save_stock_fund_flow_data(date, before=False)
 
 
 """
@@ -222,18 +169,27 @@ dict: {周期索引: DataFrame}
 """
 def run_check_stock_fund_flow(times):
     data = {}
+    period_names = {0: '今日', 1: '3日', 2: '5日', 3: '10日'}
+    
     try:
         # 顺序抓取各周期数据
         for k in times:
+            period_name = period_names.get(k, f'周期{k}')
+            logging.info(f"\n[INFO] 正在拉取{period_name}个股资金流向数据...")
             _data = stf.fetch_stocks_fund_flow(k)
             if _data is not None:
+                logging.info(f"✅ {period_name}资金流向数据拉取成功：{_data.shape[0]}条记录，{_data.shape[1]}个字段")
+                logging.info(f"   字段列表: {', '.join(_data.columns.tolist()[:5])}...")  # 显示前5个字段
                 data[k] = _data
+            else:
+                logging.warning(f"⚠️ {period_name}资金流向数据拉取失败")
     except Exception as e:
         logging.error(f"basic_data_other_daily_job.run_check_stock_fund_flow处理异常：{e}")
     
     if not data:
         return None
     else:
+        logging.info(f"\n[INFO] 所有周期数据拉取完成，共{len(data)}个周期")
         return data
 
 
@@ -251,12 +207,20 @@ def run_check_stock_fund_flow(times):
 - 行业轮动分析
 """
 def save_nph_stock_sector_fund_flow_data(date, before=True):
+    """
+    板块资金流向数据任务
+    已重构为调用独立任务文件: data_tasks/cn_stock_fund_flow_industry_job.py 和 cn_stock_fund_flow_concept_job.py
+    """
     if before:
         return
-
-    # 分别处理行业（0）和概念（1）
-    stock_sector_fund_flow_data(date, 0)  # 行业
-    stock_sector_fund_flow_data(date, 1)  # 概念
+    
+    # 导入并调用独立任务（行业）
+    from instock.job.data_tasks import cn_stock_fund_flow_industry_job
+    cn_stock_fund_flow_industry_job.save_industry_fund_flow_data(date, before=False)
+    
+    # 导入并调用独立任务（概念）
+    from instock.job.data_tasks import cn_stock_fund_flow_concept_job
+    cn_stock_fund_flow_concept_job.save_concept_fund_flow_data(date, before=False)
 
 
 """
@@ -267,22 +231,38 @@ index_sector (int):
 - 1：概念板块
 """
 def stock_sector_fund_flow_data(date, index_sector):
+    sector_type = '行业' if index_sector == 0 else '概念'
+    
     try:
+        logging.info("")
+        logging.info("=" * 80)
+        logging.info(f"[{date}] 开始获取{sector_type}资金流向数据...")
+        
         # 抓取3个时间周期：今日、3日、5日
         times = tuple(range(3))
+        period_names = {0: '今日', 1: '3日', 2: '5日'}
+        
+        logging.info(f"[INFO] 正在拉取{sector_type}资金流向数据...")
         results = run_check_stock_sector_fund_flow(index_sector, times)
         if results is None:
+            logging.warning(f"⚠️ {sector_type}资金流向数据为空，跳过")
             return
 
         # 合并3个周期的数据
+        logging.info(f"\n[INFO] 开始合并{len(times)}个周期的{sector_type}资金流向数据...")
         for t in times:
             if t == 0:
                 data = results.get(t)
+                logging.info(f"   基础数据（今日）：{data.shape[0]}条记录")
             else:
                 r = results.get(t)
                 if r is not None:
+                    period_name = period_names.get(t, f'周期{t}')
+                    logging.info(f"   合并{period_name}数据：{r.shape[0]}条记录")
                     # 按板块名称合并
                     data = pd.merge(data, r, on=['name'], how='left')
+        
+        logging.info(f"✅ 数据合并完成：最终{data.shape[0]}条记录，{data.shape[1]}个字段")
 
         if data is None or len(data.index) == 0:
             return
@@ -297,42 +277,57 @@ def stock_sector_fund_flow_data(date, index_sector):
             tbs_table = tbs.TABLE_CN_STOCK_FUND_FLOW_CONCEPT  # 概念资金流向表
         
         table_name = tbs_table['name']
+        table_cn = tbs_table.get('cn', f'{sector_type}资金流向')
+        
+        logging.info(f"\n[INFO] 准备插入数据到表: {table_name} ({table_cn})")
+        logging.info(f"   目标日期: {date.strftime('%Y-%m-%d')}")
+        logging.info(f"   数据量: {len(data)}条记录")
+        
         # 删除老数据
         if mdb.checkTableIsExist(table_name):
             del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
+            logging.info(f"   执行SQL: {del_sql}")
             mdb.executeSql(del_sql)
+            logging.info(f"   ✅ 已删除{date}的旧数据")
             cols_type = None
         else:
+            logging.info(f"   ⚠️ 表不存在，将创建新表")
             cols_type = tbs.get_field_types(tbs_table['columns'])
 
+        logging.info(f"   开始插入数据...")
         mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`name`")
         
         sector_type = "行业" if index_sector == 0 else "概念"
-        logging.info(f"保存{sector_type}资金流向数据成功：{len(data)}条")
+        logging.info(f"✅ 保存{sector_type}资金流向数据成功：{len(data)}条")
+        logging.info(f"   表名: {table_name}")
+        logging.info(f"   主键: date, name")
+        logging.info(f"   字段数: {len(data.columns)}")
     except Exception as e:
         logging.error(f"basic_data_other_daily_job.stock_sector_fund_flow_data处理异常：{e}")
 
 
 """
-并行抓取板块资金流向数据
-使用多线程同时抓取3个周期的数据
+串行抓取板块资金流向数据
+逐周期获取，避免反爬
 """
 def run_check_stock_sector_fund_flow(index_sector, times):
+    import random
     data = {}
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(times)) as executor:
-            future_to_data = {
-                executor.submit(stf.fetch_stocks_sector_fund_flow, index_sector, k): k 
-                for k in times
-            }
-            for future in concurrent.futures.as_completed(future_to_data):
-                _time = future_to_data[future]
-                try:
-                    _data_ = future.result()
-                    if _data_ is not None:
-                        data[_time] = _data_
-                except Exception as e:
-                    logging.error(f"basic_data_other_daily_job.run_check_stock_sector_fund_flow处理异常：代码{e}")
+        for _time in times:
+            try:
+                # 串行获取单个周期的板块资金流向数据
+                _data_ = stf.fetch_stocks_sector_fund_flow(index_sector, _time)
+                if _data_ is not None:
+                    data[_time] = _data_
+                
+                # 添加随机延迟（从配置文件读取）
+                sleep_with_delay('normal')
+                
+            except Exception as e:
+                logging.error(f"basic_data_other_daily_job.run_check_stock_sector_fund_flow处理异常：{_time} {e}")
+                # 失败后额外延迟
+                sleep_with_delay('retry')
     except Exception as e:
         logging.error(f"basic_data_other_daily_job.run_check_stock_sector_fund_flow处理异常：{e}")
     
@@ -356,28 +351,16 @@ def run_check_stock_sector_fund_flow(index_sector, times):
 - 除权除息日提醒
 """
 def save_nph_stock_bonus(date, before=True):
+    """
+    分红配送数据任务
+    已重构为调用独立任务文件: data_tasks/stock_bonus_job.py
+    """
     if before:
         return
-
-    try:
-        # 抓取分红配送数据
-        data = stf.fetch_stocks_bonus(date)
-        if data is None or len(data.index) == 0:
-            return
-
-        table_name = tbs.TABLE_CN_STOCK_BONUS['name']
-        # 删除老数据
-        if mdb.checkTableIsExist(table_name):
-            del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
-            mdb.executeSql(del_sql)
-            cols_type = None
-        else:
-            cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_BONUS['columns'])
-        mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
-        
-        logging.info(f"保存分红配送数据成功：{len(data)}条")
-    except Exception as e:
-        logging.error(f"basic_data_other_daily_job.save_nph_stock_bonus处理异常：{e}")
+    
+    # 导入并调用独立任务
+    from instock.job.data_tasks import cn_stock_bonus_job
+    cn_stock_bonus_job.save_bonus_data(date, before=False)
 
 
 # ==================== 5. 基本面选股 ====================
@@ -417,13 +400,22 @@ def stock_spot_buy(date):
             return
 
         table_name = tbs.TABLE_CN_STOCK_SPOT_BUY['name']
+        
         # 删除老数据
         if mdb.checkTableIsExist(table_name):
             del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
             mdb.executeSql(del_sql)
+            logging.info(f"🗑️  已删除 {table_name} 表中 {date} 的旧数据")
             cols_type = None
         else:
             cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_SPOT_BUY['columns'])
+            logging.info(f"📋 表 {table_name} 不存在，将创建新表")
+        
+        # 准备插入数据
+        logging.info(f"💾 准备插入数据到表: {table_name} (基本面选股)")
+        logging.info(f"   目标日期: {date}")
+        logging.info(f"   数据量: {len(data)}条记录")
+        logging.info(f"   开始插入数据...")
 
         mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
         
@@ -442,25 +434,13 @@ def stock_spot_buy(date):
 - 可能有重大利好或主力拉升计划
 """
 def stock_chip_race_open_data(date):
-    try:
-        data = stf.fetch_stock_chip_race_open(date)
-        if data is None or len(data.index) == 0:
-            return
-
-        table_name = tbs.TABLE_CN_STOCK_CHIP_RACE_OPEN['name']
-        # 删除老数据
-        if mdb.checkTableIsExist(table_name):
-            del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
-            mdb.executeSql(del_sql)
-            cols_type = None
-        else:
-            cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_CHIP_RACE_OPEN['columns'])
-
-        mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
-        
-        logging.info(f"保存早盘抢筹数据成功：{len(data)}条")
-    except Exception as e:
-        logging.error(f"basic_data_other_daily_job.stock_chip_race_open_data：{e}")
+    """
+    早盘抢筹数据任务
+    已重构为调用独立任务文件: data_tasks/cn_stock_chip_race_open_job.py
+    """
+    # 导入并调用独立任务
+    from instock.job.data_tasks import cn_stock_chip_race_open_job
+    cn_stock_chip_race_open_job.save_chip_race_open_data(date, before=False)
 
 
 # ==================== 7. 保存涨停原因数据 ====================
@@ -476,25 +456,13 @@ def stock_chip_race_open_data(date):
 - 跟踪题材炒作
 """
 def stock_imitup_reason_data(date):
-    try:
-        data = stf.fetch_stock_limitup_reason(date)
-        if data is None or len(data.index) == 0:
-            return
-
-        table_name = tbs.TABLE_CN_STOCK_LIMITUP_REASON['name']
-        # 删除老数据
-        if mdb.checkTableIsExist(table_name):
-            del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
-            mdb.executeSql(del_sql)
-            cols_type = None
-        else:
-            cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_LIMITUP_REASON['columns'])
-
-        mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
-        
-        logging.info(f"保存涨停原因数据成功：{len(data)}条")
-    except Exception as e:
-        logging.error(f"basic_data_other_daily_job.stock_imitup_reason_data：{e}")
+    """
+    涨停原因数据任务
+    已重构为调用独立任务文件: data_tasks/cn_stock_limitup_reason_job.py
+    """
+    # 导入并调用独立任务
+    from instock.job.data_tasks import cn_stock_limitup_reason_job
+    cn_stock_limitup_reason_job.save_limitup_reason_data(date, before=False)
 
 
 # ==================== 主函数 ====================
@@ -512,22 +480,25 @@ def stock_imitup_reason_data(date):
 一个任务失败不影响其他任务
 """
 def main():
-    # 1. 龙虎榜（包含基本面选股）
-    runt.run_with_args(save_nph_stock_lhb_data)
+    # 1. 龙虎榜(东财,包含基本面选股)
+    runt.run_with_args(save_nph_stock_lhb_data, False)
     
-    # 2. 分红配送
-    runt.run_with_args(save_nph_stock_bonus)
+    # 2. 龙虎榜汇总(新浪)
+    runt.run_with_args(save_nph_stock_top_data, False)
     
-    # 3. 个股资金流向（今日、3日、5日、10日）
-    runt.run_with_args(save_nph_stock_fund_flow_data)
+    # 3. 分红配送
+    runt.run_with_args(save_nph_stock_bonus, False)
     
-    # 4. 板块资金流向（行业、概念）
-    runt.run_with_args(save_nph_stock_sector_fund_flow_data)
+    # 4. 个股资金流向(今日、3日、5日、10日)
+    runt.run_with_args(save_nph_stock_fund_flow_data, False)
     
-    # 5. 早盘抢筹
+    # 5. 板块资金流向(行业、概念)
+    runt.run_with_args(save_nph_stock_sector_fund_flow_data, False)
+    
+    # 6. 早盘抢筹
     runt.run_with_args(stock_chip_race_open_data)
     
-    # 6. 涨停原因
+    # 7. 涨停原因
     runt.run_with_args(stock_imitup_reason_data)
     
     logging.info("其他基础数据任务执行完成")

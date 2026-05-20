@@ -135,6 +135,9 @@ ATR计算方法（简化版）：
 """
 def check_low_increase(code_name, data, date=None, ma_short=30, ma_long=250, threshold=10):
     
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     # ==================== 步骤1: 数据预处理 ====================
     # 确定计算日期
     if date is None:

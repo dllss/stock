@@ -59,6 +59,10 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Test output files
+test_output.txt
+test_result.txt
+
 # Flask stuff:
 instance/
 .webassets-cache
@@ -160,3 +164,4 @@ cython_debug/
 cache/
 log/
 test/
+docs/

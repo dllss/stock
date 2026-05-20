@@ -1,31 +1,138 @@
+# ========================================
+# InStock 股票量化系统 - Docker Compose 配置
+# ========================================
+# 
+# 功能说明：
+# 1. 自动部署 MySQL/MariaDB 数据库
+# 2. 部署 InStock 应用（包含 Web 服务 + Cron 定时任务）
+# 3. 配置数据持久化和网络隔离
+# 4. 支持环境变量自定义配置
+#
+# 使用方式：
+#   docker-compose up -d          # 启动所有服务
+#   docker-compose down           # 停止所有服务
+#   docker-compose logs -f        # 查看实时日志
+#   docker-compose ps             # 查看容器状态
+#
+# 访问地址：
+#   Web 界面: http://localhost:9988
+#   Supervisor: http://localhost:9001 (进程管理)
+#   数据库: localhost:3306 (root/root)
+#
+# ========================================
+
 version: '4.0.0'
 
 services:
+  # ==================== 数据库服务 ====================
   instockdbservice:
-    image: library/mariadb:latest
-    container_name: InStockDbService
+    # image: library/mariadb:latest  # 使用最新版的 MariaDB（MySQL 兼容）- 已注释，改用国内镜像
+    image: docker.m.daocloud.io/library/mariadb:10.5.9  # 使用国内镜像源加速下载
+    container_name: InStockDbService  # 容器名称
+    restart: unless-stopped  # 除非手动停止，否则自动重启
+    
+    # 环境变量配置
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root  # root 用户密码（生产环境请修改为强密码）
+      MYSQL_DATABASE: instockdb  # 自动创建的数据库名称
+      TZ: Asia/Shanghai  # 设置时区为中国标准时间
+    
+    # 数据卷挂载（持久化数据库文件）
     volumes:
-      - /data/mariadb/data:/var/lib/instockdb
+      # Linux/Mac 路径示例：
+      - /data/mariadb/data:/var/lib/mysql
+      # Windows 路径示例（取消注释并使用）：
+      # - D:/docker/mariadb/data:/var/lib/mysql
+    
+    # 端口映射（可选，用于外部数据库工具连接）
+    # ports:
+    #   - "3306:3306"
+    
+    # 网络配置
     networks:
       - instock_network
+    
+    # 健康检查（确保数据库完全启动后再启动应用）
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s  # 每10秒检查一次
+      timeout: 5s    # 超时时间
+      retries: 5     # 重试次数
+      start_period: 30s  # 启动宽限期
 
+  # ==================== InStock 应用服务 ====================
   instock:
-    image: mayanghua/instock:latest
-    container_name: InStock
+    # 镜像选择（二选一）：
+    
+    # 方式1：使用官方镜像（推荐新手）- 已注释
+    # image: mayanghua/instock:latest
+    
+    # 方式2：使用本地构建的镜像（开发调试用）⭐ 当前启用
+    build:
+      context: ..  # 项目根目录（相对于 docker-compose.yml 的位置）
+      dockerfile: docker/Dockerfile  # Dockerfile 路径
+    
+    container_name: InStock  # 容器名称
+    restart: unless-stopped  # 除非手动停止，否则自动重启
+    
+    # 端口映射
     ports:
-      - "9988:9988"
+      - "9988:9988"  # Web 服务端口（股票数据可视化界面）
+      - "9001:9001"  # Supervisor 管理界面端口（进程监控和管理）
+    
+    # 环境变量配置
     environment:
-      db_host: InStockDbService
+      # 数据库连接配置
+      db_host: InStockDbService  # 数据库主机名（Docker 内部网络名称）
+      db_user: root              # 数据库用户名
+      db_password: root          # 数据库密码
+      db_database: instockdb     # 数据库名称
+      db_port: 3306              # 数据库端口
+      
+      # 时区设置
+      TZ: Asia/Shanghai
+      
+      # 东方财富 Cookie（可选，解决高频访问限制）
+      # 获取方法：浏览器访问 https://quote.eastmoney.com/center/gridlist.html#hs_a_board
+      # 打开开发者工具 → Network → 复制 Cookie 值
+      # EAST_MONEY_COOKIE: "你的Cookie值"
+    
+    # 数据卷挂载
     volumes:
-      - /data/instockproxy.txt:/data/InStock/instock/config/proxy.txt
+      # 日志持久化（重要！保留历史日志）
+      - D:/docker/instock/logs:/data/InStock/instock/log
+    
+    # 依赖关系（确保数据库先启动）
     depends_on:
-      - instockdbservice
+      instockdbservice:
+        condition: service_healthy  # 等待数据库健康检查通过
+    
+    # 网络配置
     networks:
       - instock_network
+    
+    # 资源限制（防止占用过多系统资源）
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'      # 最多使用 2 个 CPU 核心
+          memory: 2G       # 最多使用 2GB 内存
+        reservations:
+          cpus: '0.5'      # 预留 0.5 个 CPU 核心
+          memory: 512M     # 预留 512MB 内存
+    
+    # 日志配置（防止日志文件过大）
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"    # 单个日志文件最大 10MB
+        max-file: "3"      # 最多保留 3 个日志文件
 
+# ==================== 网络配置 ====================
 networks:
   instock_network:
-    driver: bridge
-
+    driver: bridge  # 使用桥接网络模式（容器间可通过服务名通信）
+    # 如果需要固定子网，可以这样配置：
+    # ipam:
+    #   config:
+    #     - subnet: 172.20.0.0/16

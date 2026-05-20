@@ -1,5 +1,5 @@
-chcp 65001
 @echo off
+chcp 65001 >nul
 cd %~dp0
 cd ..
 cd job

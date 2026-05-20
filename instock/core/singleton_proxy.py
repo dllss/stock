@@ -77,6 +77,9 @@ class proxys(metaclass=singleton_type):
         异常处理：
             如果文件不存在或读取失败，不会报错，只是不使用代理
         """
+        # 先初始化为空列表，确保属性一定存在
+        self.data = []
+        
         try:
             # with语句：自动处理文件的打开和关闭
             with open(proxy_filename, "r") as file:
@@ -109,28 +112,28 @@ class proxys(metaclass=singleton_type):
     def get_proxies(self):
         """
         随机获取一个可用的代理IP（字典格式）
-        
+            
         返回值：
             dict: 代理配置字典，格式为{"http": "代理地址", "https": "代理地址"}
                  如果没有可用代理，返回None
-                 
+                      
         字典格式说明：
             这是requests库要求的代理格式
             - "http": HTTP协议使用的代理
             - "https": HTTPS协议使用的代理
             - 通常两个值相同
-            
+                
         随机选择的原因：
             - 分散请求到不同的代理IP
             - 降低单个代理被封禁的风险
             - 提高系统的稳定性
-            
+                
         使用示例：
             import requests
-            
+                
             proxy_mgr = proxys()
             proxy_dict = proxy_mgr.get_proxies()
-            
+                
             if proxy_dict:
                 # 使用代理访问网站
                 response = requests.get("https://data.eastmoney.com", proxies=proxy_dict)
@@ -141,12 +144,55 @@ class proxys(metaclass=singleton_type):
         # 检查是否有可用代理
         if self.data is None or len(self.data) == 0:
             return None  # 没有代理，返回None
-
+    
         # random.choice()：从列表中随机选择一个元素
         proxy = random.choice(self.data)
-        
+            
         # 返回requests库要求的代理字典格式
         return {"http": proxy, "https": proxy}
+    
+    def switch_proxy(self):
+        """
+        手动切换到下一个代理IP
+            
+        返回值：
+            str: 新切换的代理地址，如果没有可用代理返回None
+                
+        使用场景：
+            - 当前代理失效时，用户手动切换
+            - 测试不同代理的可用性
+                
+        使用示例：
+            proxy_mgr = proxys()
+            new_proxy = proxy_mgr.switch_proxy()
+            if new_proxy:
+                print(f"已切换到代理: {new_proxy}")
+        """
+        # 检查是否有可用代理
+        if self.data is None or len(self.data) == 0:
+            print("❌ 没有可用的代理IP")
+            return None
+            
+        # 如果只有一个代理，无法切换
+        if len(self.data) == 1:
+            print("⚠️  只有一个代理，无法切换")
+            return self.data[0]
+            
+        # 随机选择一个与当前不同的代理
+        current_proxy = None
+        if hasattr(self, '_current_proxy'):
+            current_proxy = self._current_proxy
+            
+        # 循环直到选到不同的代理
+        for _ in range(10):  # 最多尝试10次
+            new_proxy = random.choice(self.data)
+            if new_proxy != current_proxy:
+                self._current_proxy = new_proxy
+                return new_proxy
+            
+        # 如果所有代理都相同（理论上不可能），返回第一个
+        self._current_proxy = self.data[0]
+        return self.data[0]
 
 """
     def get_proxies(self):

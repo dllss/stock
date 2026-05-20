@@ -1,0 +1,9 @@
+{
+    // 禁用 HTML 文件中的脚本验证（避免 Tornado 模板语法报错）
+    "html.validate.scripts": false,
+    
+    // 或者只对特定文件禁用
+    "[html]": {
+        "editor.defaultFormatter": null
+    }
+}

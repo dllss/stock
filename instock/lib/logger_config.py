@@ -20,7 +20,7 @@ def setup_job_logging(log_filename="stock_execute_job.log"):
     _log_file = os.path.join(_log_dir, log_filename)
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s %(message)s",
+        format="%(asctime)s [%(filename)s:%(lineno)d - %(funcName)s()] %(message)s",
         handlers=[
             logging.StreamHandler(sys.stdout),
             logging.FileHandler(_log_file, encoding="utf-8"),

@@ -1,21 +1,197 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据库操作模块 - 核心基础模块
-===========================
-这个文件是整个系统的数据库操作基础，提供了与MySQL数据库交互的所有功能。
-主要功能：
-1. 数据库连接配置
-2. 数据插入（从pandas DataFrame）
-3. 数据更新
-4. 数据查询
-5. 表存在性检查
+数据库操作核心模块 - MySQL数据库交互封装
+==========================================
 
-重要提示：对于Python新手
-- import 语句：导入其他模块或库，让我们可以使用它们的功能
-- 变量赋值：使用 = 号给变量赋值
-- 函数定义：使用 def 关键字定义函数
-- 异常处理：使用 try-except 捕获和处理错误
+功能说明：
+本模块提供完整的MySQL数据库操作功能，是整个系统的数据持久化层。
+包括：
+1. 数据库连接管理（SQLAlchemy、PyMySQL、TornDB）
+2. DataFrame数据插入（批量导入）
+3. SQL查询执行（参数化查询防注入）
+4. 表结构检查和管理
+5. 事务处理
+
+核心特性：
+- 多连接方式支持（ORM、原生SQL、异步SQL）
+- 环境变量配置（Docker友好）
+- 自动字符集处理（utf8mb4支持emoji）
+- 连接池管理（提高性能）
+- 异常处理和日志记录
+
+数据库配置优先级：
+1. 环境变量（最高优先级，适合Docker部署）
+2. 代码默认值（开发环境使用）
+
+支持的数据库操作：
+A. 数据写入：
+   - insert_db_from_df()：从DataFrame批量插入
+   - executeSql()：执行INSERT/UPDATE/DELETE
+   
+B. 数据读取：
+   - getDB()：执行SELECT查询，返回DataFrame
+   - executeSqlCount()：执行COUNT查询
+   
+C. 表管理：
+   - checkTableExist()：检查表是否存在
+   - create_table()：创建新表
+
+使用场景：
+- 股票数据存储
+- 指标计算结果保存
+- 历史行情归档
+- 用户数据管理
+- 交易日志记录
+
+技术栈：
+- SQLAlchemy：Python ORM框架
+- PyMySQL：纯Python MySQL驱动
+- TornDB：Tornado异步MySQL客户端
+- pandas：数据处理库
+
+安全特性：
+- 参数化查询（防止SQL注入）
+- 密码不从硬编码读取
+- 连接超时控制
+- 字符集统一（避免乱码）
+
+性能优化：
+- 连接池复用
+- 批量插入优化
+- 索引建议
+- 事务控制
+
+依赖关系：
+- pymysql：MySQL驱动
+- sqlalchemy：ORM框架
+- pandas：数据处理
+- logging：日志记录
+- os：环境变量读取
+
+配置示例：
+
+方式1：代码配置（开发环境）
+```python
+db_host = "localhost"
+db_user = "root"
+db_password = "root"
+db_database = "instockdb"
+db_port = 3306
+```
+
+方式2：环境变量（生产环境/Docker）
+```bash
+export db_host=192.168.1.100
+export db_user=stock_user
+export db_password=secure_password
+export db_database=production_db
+export db_port=3306
+```
+
+方式3：Docker Compose
+```yaml
+services:
+  app:
+    environment:
+      - db_host=mysql
+      - db_user=root
+      - db_password=${DB_PASSWORD}
+      - db_database=instockdb
+      - db_port=3306
+```
+
+使用示例：
+
+1. 批量插入数据：
+```python
+import pandas as pd
+
+# 准备数据
+df = pd.DataFrame({
+    'code': ['000001', '600519'],
+    'name': ['平安银行', '贵州茅台'],
+    'price': [10.5, 1800.0]
+})
+
+# 插入数据库
+table_name = 'stock_basic'
+insert_db_from_df(df, table_name)
+```
+
+2. 执行查询：
+```python
+# 查询所有股票
+sql = "SELECT * FROM stock_basic WHERE price > %s"
+params = (100,)  # 参数化查询
+result = getDB(sql, params)
+print(result)
+```
+
+3. 检查表是否存在：
+```python
+if not checkTableExist('stock_basic'):
+    print("表不存在，需要创建")
+```
+
+4. 执行更新：
+```python
+sql = "UPDATE stock_basic SET price = %s WHERE code = %s"
+params = (11.0, '000001')
+executeSql(sql, params)
+```
+
+注意事项：
+1. 首次使用前需要创建数据库：CREATE DATABASE instockdb CHARACTER SET utf8mb4;
+2. 确保MySQL服务已启动并可访问
+3. 防火墙需要开放3306端口（远程访问时）
+4. 生产环境使用强密码
+5. 定期备份数据库
+6. 监控连接数和性能
+
+常见问题：
+
+Q: 为什么有三种连接方式？
+A: 
+- SQLAlchemy：适合ORM操作，代码优雅
+- PyMySQL：适合原生SQL，灵活高效
+- TornDB：适合Tornado异步Web，非阻塞
+
+Q: 如何优化大批量插入？
+A: 
+- 使用insert_db_from_df()批量插入
+- 关闭索引后重建
+- 调整innodb_buffer_pool_size
+- 使用LOAD DATA INFILE（更快）
+
+Q: 如何处理中文乱码？
+A: 
+- 数据库字符集设为utf8mb4
+- 连接字符串指定charset=utf8mb4
+- Python源文件声明# -*- coding: utf-8 -*-
+
+Q: 连接池如何配置？
+A: SQLAlchemy引擎自动管理连接池
+- pool_size：池中保持的连接数
+- max_overflow：超出pool_size后可创建的最大连接数
+- pool_timeout：获取连接的超时时间
+
+Q: 如何监控数据库性能？
+A: 
+- 开启slow_query_log
+- 使用EXPLAIN分析查询计划
+- 监控连接数：SHOW PROCESSLIST
+- 定期检查慢查询
+
+最佳实践：
+1. 始终使用参数化查询（防SQL注入）
+2. 大事务拆分为小事务
+3. 及时关闭不需要的连接
+4. 为常用查询字段添加索引
+5. 定期清理历史数据
+6. 使用连接池而非每次新建连接
+7. 记录关键操作的日志
+8. 实现重试机制（网络波动时）
 """
 
 # ==================== 导入必需的库 ====================
@@ -67,7 +243,6 @@ if _db_port is not None:
 # %s 是字符串格式化占位符，会被后面元组中的值依次替换
 MYSQL_CONN_URL = "mysql+pymysql://%s:%s@%s:%s/%s?charset=%s" % (
     db_user, db_password, db_host, db_port, db_database, db_charset)
-logging.info(f"数据库链接信息：{ MYSQL_CONN_URL}")  # 记录数据库连接信息到日志
 
 # PyMySQL的连接配置字典
 # 字典（dict）：Python的键值对数据结构，用{}表示，格式为 {键: 值}
@@ -147,7 +322,7 @@ def get_connection():
         return pymysql.connect(**MYSQL_CONN_DBAPI)
     except Exception as e:  # Exception是所有异常的基类，可以捕获任何错误
         # 记录错误日志，包含配置信息和错误详情
-        logging.error(f"database.conn_not_cursor处理异常：{MYSQL_CONN_DBAPI}{e}")
+        logging.error(f"❌ database.get_connection处理异常：{MYSQL_CONN_DBAPI}{e}")
     return None  # 连接失败时返回None
 
 
@@ -186,7 +361,7 @@ primary_keys='`date`,`code`'  # 主键
 """
 def insert_db_from_df(data, table_name, cols_type, write_index, primary_keys, indexs=None):
     # 调用更通用的函数，None表示使用默认数据库
-    insert_other_db_from_df(None, data, table_name, cols_type, write_index, primary_keys, indexs)
+    return insert_other_db_from_df(None, data, table_name, cols_type, write_index, primary_keys, indexs)
 
 
 """
@@ -203,6 +378,10 @@ to_db (str/None): 目标数据库名，None表示使用默认数据库
 5. 检查并创建索引
 """
 def insert_other_db_from_df(to_db, data, table_name, cols_type, write_index, primary_keys, indexs=None):
+    logging.info(f"💾 开始插入数据到表: {table_name}")
+    logging.info(f"   数据量: {len(data)}条记录")
+    logging.info(f"   字段数: {len(data.columns)}个")
+    
     # 步骤1: 根据目标数据库创建引擎
     if to_db is None:
         engine_mysql = engine()  # 使用默认数据库
@@ -221,6 +400,7 @@ def insert_other_db_from_df(to_db, data, table_name, cols_type, write_index, pri
         col_name_list.insert(0, data.index.name)  # insert(0, x)在列表开头插入元素
     
     # 步骤5: 尝试将数据写入数据库
+    insert_success = True  # 标记插入是否成功
     try:
         if cols_type is None:
             # 情况1: 自动推断数据类型
@@ -254,11 +434,13 @@ def insert_other_db_from_df(to_db, data, table_name, cols_type, write_index, pri
             )
     except Exception as e:
         # 捕获并记录任何插入错误
-        logging.error(f"database.insert_other_db_from_df处理异常：{table_name}表{e}")
+        logging.error(f"❌ database.insert_other_db_from_df处理异常：{table_name}表{e}")
+        insert_success = False  # 标记为失败
+        return False  # 返回失败状态
 
     # 步骤6: 检查表是否有主键，如果没有则创建
     # 主键的作用：唯一标识每一行数据，防止重复插入
-    if not ipt.get_pk_constraint(table_name)['constrained_columns']:
+    if insert_success and not ipt.get_pk_constraint(table_name)['constrained_columns']:
         try:
             # with语句：上下文管理器，确保连接和游标正确关闭
             # 即使发生错误，也会自动清理资源
@@ -276,7 +458,10 @@ def insert_other_db_from_df(to_db, data, table_name, cols_type, write_index, pri
                             db.execute(f'ALTER TABLE `{table_name}` ADD INDEX IN{k}({indexs[k]});')
         except Exception as e:
             # 记录主键或索引创建错误
-            logging.error(f"database.insert_other_db_from_df处理异常：{table_name}表{e}")
+            logging.error(f"❌ database.insert_other_db_from_df处理异常：{table_name}表{e}")
+            return False
+    
+    return True  # 返回成功状态
 
 
 # ==================== 数据更新函数 ====================
@@ -295,7 +480,7 @@ where (list): WHERE条件中使用的字段列表，用于定位要更新的行
 根据where条件更新数据库中的记录
 会自动处理NULL值和不同数据类型
 SQL UPDATE语法：
-UPDATE 表名 SET 字段1=值1, 字段2=值2 WHERE 条件字段=条件值
+UPDATE 表名 SET 字段1=值1, 字段2=값2 WHERE 条件字段=조건값
 使用示例：
 # 更新某只股票的价格信息
 update_df = pd.DataFrame({
@@ -394,6 +579,7 @@ else:
 print("表不存在，需要创建")
 """
 def checkTableIsExist(tableName):
+    logging.info(f"🔍 检查表是否存在: {tableName}")
     with get_connection() as conn:
         with conn.cursor() as db:
             # 查询information_schema.tables表
@@ -406,8 +592,12 @@ def checkTableIsExist(tableName):
             
             # fetchone()获取一行结果，返回元组
             # [0]取第一个元素，即COUNT(*)的值
-            if db.fetchone()[0] == 1:
+            result = db.fetchone()[0]
+            if result == 1:
+                logging.info(f"✅ 表 {tableName} 存在")
                 return True  # 找到1条记录，表示表存在
+            else:
+                logging.info(f"❌ 表 {tableName} 不存在")
     return False  # 没找到，表不存在
 
 
@@ -435,15 +625,17 @@ executeSql(
 )
 """
 def executeSql(sql, params=()):
+    logging.info(f"📝 执行SQL: {sql[:100]}{'...' if len(sql) > 100 else ''}")
     with get_connection() as conn:
         with conn.cursor() as db:
             try:
                 # 执行SQL语句
                 # params会自动替换SQL中的%s占位符
                 db.execute(sql, params)
+                logging.info(f"✅ SQL执行成功")
             except Exception as e:
                 # 记录错误，包含SQL语句便于调试
-                logging.error(f"database.executeSql处理异常：{sql}{e}")
+                logging.error(f"❌ database.executeSql处理异常：{sql}{e}")
 
 
 """

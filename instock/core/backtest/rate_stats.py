@@ -67,7 +67,7 @@ data (DataFrame): 该股票的历史K线数据
 - close：收盘价
 - 数据应该是完整的，从买入日期开始往后
 stock_column (list): 返回数据的列名列表
-- 格式：['date', 'code', 'rate_1', 'rate_3', 'rate_5', ...]
+- 格式：['date', 'code', 'name', 'rate_1', 'rate_3', 'rate_5', ...]
 - 决定计算哪些天数的收益率
 threshold (int): 计算的最大天数
 - 默认101：计算未来100天（第0天是买入日）
@@ -75,7 +75,7 @@ threshold (int): 计算的最大天数
 返回值：
 pandas.Series: 收益率数据
 - 索引：stock_column列名
-- 值：['date', 'code', rate_1值, rate_3值, ...]
+- 值：['date', 'code', 'name', rate_1值, rate_3值, ...]
 - 未来数据不足的位置用None填充
 计算原理：
 1. 提取买入日期和代码
@@ -113,15 +113,36 @@ def get_rates(code_name, data, stock_column, threshold=101):
         # ==================== 步骤2: 提取买入信息 ====================
         start_date = code_name[0]  # 买入日期，如"2024-01-01"
         code = code_name[1]  # 股票代码，如"600000"
+        name = code_name[2]  # 股票名称，如"浦发银行"
         
-        # 初始化返回数组，开头是日期和代码
-        stock_data_list = [start_date, code]
+        # 初始化返回数组，开头是日期、代码和名称
+        stock_data_list = [start_date, code, name]
 
         # ==================== 步骤3: 数据筛选 ====================
+        # 确保start_date是字符串类型，与data['date']列类型一致
+        if hasattr(start_date, 'strftime'):
+            # 如果是datetime.date对象，转换为字符串
+            start_date_str = start_date.strftime("%Y-%m-%d")
+        else:
+            # 如果已经是字符串，直接使用
+            start_date_str = str(start_date)
+        
+        # 确保data['date']列也是字符串类型
+        # 有些情况下date列可能是datetime.date对象
+        if len(data) > 0 and hasattr(data['date'].iloc[0], 'strftime'):
+            # date列是datetime对象，转换为字符串
+            data = data.copy()
+            data['date'] = data['date'].apply(lambda x: x.strftime("%Y-%m-%d") if hasattr(x, 'strftime') else str(x))
+        
         # 创建布尔掩码：date >= 买入日期
         # 只保留买入日期及之后的数据
-        mask = (data['date'] >= start_date)
+        original_len = len(data)
+        mask = (data['date'] >= start_date_str)
         data = data.loc[mask].copy()  # copy()避免警告
+        
+        # 记录筛选结果
+        if len(data) < original_len:
+            logging.debug(f"{code}股票日期筛选: {original_len}天 -> {len(data)}天 (start_date={start_date_str})")
         
         # 只取前threshold天数据
         # head(n)：取前n行
@@ -132,6 +153,7 @@ def get_rates(code_name, data, stock_column, threshold=101):
         # 至少需要2天数据（买入日+至少1个未来日）
         if len(data.index) <= 1:
             # 数据不足，无法计算收益率
+            logging.debug(f"{code}股票筛选后只有{len(data.index)}天数据，无法计算收益率")
             return None
 
         # ==================== 步骤5: 计算收益率 ====================
@@ -170,17 +192,23 @@ def get_rates(code_name, data, stock_column, threshold=101):
                 stock_data_list.append(row[col_len-1])
         
         # 现在stock_data_list包含：
-        # ['2024-01-01', '600000', 5.00, 3.00, 10.00, ...]
-        # 分别对应：date, code, rate_1, rate_2, rate_3, ...
+        # ['2024-01-01', '600000', '浦发银行', 5.00, 3.00, 10.00, ...]
+        # 分别对应：date, code, name, rate_1, rate_2, rate_3, ...
 
-        # ==================== 步骤7: 填充缺失值 ====================
-        # 如果未来数据不足100天，需要填充None
-        # 例如：只有50天数据，但stock_column需要100个收益率
+        # ==================== 步骤7: 填充或缺失值 ====================
+        # 如果未来数据不足，需要填充None
+        # 如果未来数据过多，需要截断
+        
+        # 确保stock_data_list的长度不超过stock_column
+        if len(stock_data_list) > len(stock_column):
+            # 数据过多，截断到正确长度
+            stock_data_list = stock_data_list[:len(stock_column)]
+            logging.warning(f"⚠️ {code}股票收益率数据过多({len(stock_data_list)}>{len(stock_column)})，已截断")
         
         # 计算还需要多少个None
         _l = len(stock_column) - len(stock_data_list)
         
-        # 填充None
+        # 填充None（如果数据不足）
         for i in range(0, _l):
             stock_data_list.append(None)
         

@@ -122,6 +122,9 @@ bool:
 def check(code_name, data, date=None, threshold=60):
     
     # ==================== 步骤1: 数据预处理 ====================
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     origin_data = data  # 保存原始数据（供放量判断使用）
     
     # 确定计算日期
@@ -141,7 +144,9 @@ def check(code_name, data, date=None, threshold=60):
 
     # ==================== 步骤2: 计算60日均线 ====================
     # MA60：60日移动平均线（季线）
-    data.loc[:, 'ma60'] = tl.MA(data['close'].values, timeperiod=60)
+    # 【关键修复】确保数据类型为float64，避免talib报错
+    close_values = data['close'].values.astype(np.float64)
+    data.loc[:, 'ma60'] = tl.MA(close_values, timeperiod=60)
     # 处理NaN值
     data['ma60'].values[np.isnan(data['ma60'].values)] = 0.0
 

@@ -120,6 +120,9 @@ bool:
 """
 def check(code_name, data, date=None, threshold=60):
     
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     # ==================== 步骤1: 数据预处理 ====================
     # 确定计算日期
     if date is None:
@@ -149,7 +152,9 @@ def check(code_name, data, date=None, threshold=60):
 
     # ==================== 步骤3: 计算5日均量 ====================
     # 计算5日平均成交量
-    data.loc[:, 'vol_ma5'] = tl.MA(data['volume'].values, timeperiod=5)
+    # 【关键修复】确保数据类型为float64，避免talib报错
+    volume_values = data['volume'].values.astype(np.float64)
+    data.loc[:, 'vol_ma5'] = tl.MA(volume_values, timeperiod=5)
     # 处理NaN值
     data['vol_ma5'].values[np.isnan(data['vol_ma5'].values)] = 0.0
 

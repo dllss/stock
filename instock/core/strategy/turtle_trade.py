@@ -127,6 +127,9 @@ bool:
 """
 def check_enter(code_name, data, date=None, threshold=60):
     
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     # ==================== 步骤1: 数据预处理 ====================
     # 确定计算日期
     if date is None:

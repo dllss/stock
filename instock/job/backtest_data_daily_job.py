@@ -53,8 +53,9 @@ sys.path.append(cpath)
 # ==================== 导入项目模块 ====================
 import instock.core.tablestructure as tbs  # 表结构定义
 import instock.lib.database as mdb  # 数据库操作
+import instock.lib.run_template as runt  # 任务运行模板
 import instock.core.backtest.rate_stats as rate  # 收益率计算
-from instock.core.singleton_stock import stock_hist_data  # 历史数据单例
+# from instock.core.singleton_stock import stock_hist_data  # 历史数据单例（已不再使用，回测任务直接查询数据库）
 
 __author__ = 'myh '
 __date__ = '2023/3/10 '
@@ -81,7 +82,13 @@ __date__ = '2023/3/10 '
 3. 遍历每个表，提交到线程池
 4. 等待所有回测完成
 """
-def prepare():
+def prepare(date=None):
+    """
+    准备并执行回测任务
+    
+    参数:
+        date: 回测日期，如果为None则从历史数据中自动获取
+    """
     # 步骤1: 构建需要回测的表列表
     # 技术指标买入和卖出信号表
     tables = [tbs.TABLE_CN_STOCK_INDICATORS_BUY, tbs.TABLE_CN_STOCK_INDICATORS_SELL]
@@ -91,23 +98,132 @@ def prepare():
     tables.extend(tbs.TABLE_CN_STOCK_STRATEGIES)
     
     # 步骤2: 构建回测数据列定义
-    # 回测列包括：date, code, rate_1, rate_3, rate_5, ..., rate_100
+    # 回测列包括：date, code, name, rate_1, rate_3, rate_5, ..., rate_100
     backtest_columns = list(tbs.TABLE_CN_STOCK_BACKTEST_DATA['columns'])
+    backtest_columns.insert(0, 'name')  # 在开头插入name列
     backtest_columns.insert(0, 'code')  # 在开头插入code列
     backtest_columns.insert(0, 'date')  # 在开头插入date列
     backtest_column = backtest_columns
     
-    # 步骤3: 获取所有股票的历史数据（单例模式，只加载一次）
-    stocks_data = stock_hist_data().get_data()
-    if stocks_data is None:
-        # 没有历史数据，无法回测
+    # 【关键修改】步骤3: 直接查询数据库获取K线数据（从最早待回测日期到最新日期）
+    # 不再使用 stock_hist_data(date=date)，因为它只加载到date为止的数据
+    # 回测需要买入日期之后的数据来计算收益率
+    logging.info(f"🔍 开始加载回测所需的K线数据...")
+    
+    # 获取最新的交易日期
+    sql_latest = "SELECT MAX(`date`) as latest_date FROM cn_stock_spot"
+    df_latest = pd.read_sql(sql=sql_latest, con=mdb.engine())
+    if df_latest is None or len(df_latest) == 0 or df_latest.iloc[0]['latest_date'] is None:
+        logging.warning("❌ 无法获取最新交易日期，回测任务终止")
         return
     
-    # 步骤4: 从历史数据中提取日期
-    # stocks_data是字典，键是(date, code, name)
-    for k in stocks_data:
-        date = k[0]  # 获取第一个股票的日期
-        break  # 只需要一个日期即可（所有股票日期相同）
+    latest_date = df_latest.iloc[0]['latest_date']
+    logging.info(f"✅ 最新交易日期: {latest_date}")
+    
+    # 如果未指定日期，使用最新日期作为回测日期
+    if date is None:
+        date = latest_date
+    
+    # 【关键修复】先查询所有待回测的记录，找出最早的日期
+    # 这样可以确保加载足够范围的K线数据
+    all_dates = []
+    for table in tables:
+        table_name = table['name']
+        if not mdb.checkTableIsExist(table_name):
+            continue
+        
+        column_tail = tuple(table['columns'])[-1]
+        now_date = datetime.datetime.now().date()
+        
+        sql_dates = f"SELECT DISTINCT `date` FROM `{table_name}` WHERE `date` < '{now_date}' AND `{column_tail}` is NULL"
+        try:
+            df_dates = pd.read_sql(sql=sql_dates, con=mdb.engine())
+            if df_dates is not None and len(df_dates) > 0:
+                all_dates.extend(df_dates['date'].tolist())
+        except Exception as e:
+            logging.warning(f"⚠️ 查询表 {table_name} 的日期失败: {e}")
+    
+    # 找出最早的待回测日期
+    if all_dates:
+        # 统一转换为字符串格式后比较
+        all_dates_str = [str(d) if hasattr(d, 'year') else str(d) for d in all_dates]
+        earliest_date = min(all_dates_str)
+        logging.info(f"📅 最早待回测日期: {earliest_date}")
+    else:
+        # 如果没有待回测记录，使用传入的date
+        earliest_date = str(date) if hasattr(date, 'year') else str(date)
+        logging.info(f"📅 没有待回测记录，使用指定日期: {earliest_date}")
+    
+    # 将date转换为字符串格式（用于后续逻辑）
+    date_str = str(date) if hasattr(date, 'year') else str(date)
+    
+    logging.info(f"📅 回测买入日期: {date_str}")
+    logging.info(f"📊 K线数据范围: {earliest_date} 到 {latest_date}")
+    
+    # 查询所有股票从最早待回测日期到最新日期的K线数据
+    # 【关键修复】使用earliest_date确保加载足够范围的K线数据
+    sql_kline = f"""
+        SELECT 
+            `code`,
+            `date`,
+            `name`,
+            `open_price` as `open`,
+            `new_price` as `close`,
+            `high_price` as `high`,
+            `low_price` as `low`,
+            `volume` as `vol`,
+            `deal_amount` as `money`
+        FROM cn_stock_spot
+        WHERE `date` >= '{earliest_date}' AND `date` <= '{latest_date}'
+        ORDER BY `code`, `date`
+    """
+    
+    try:
+        df_all = pd.read_sql(sql=sql_kline, con=mdb.engine())
+        logging.info(f"✅ 成功加载 {len(df_all)} 条K线记录")
+        
+        if len(df_all) == 0:
+            logging.warning("⚠️ 没有K线数据，回测任务终止")
+            return
+        
+        # 将DataFrame转换为字典格式，与原有的data_all结构兼容
+        # 键：(date, code, name)，值：DataFrame（该股票从date开始的K线数据）
+        stocks_data = {}
+        
+        # 【关键修复】按股票代码分组，为每只股票的每个待回测日期创建key
+        for code, group in df_all.groupby('code'):
+            if len(group) == 0:
+                continue
+            
+            # 获取股票名称（从第一行数据中获取）
+            name = group.iloc[0]['name']
+            
+            # 为该股票的每个不同日期创建key
+            # 这样无论哪一天的选股信号，都能找到对应的K线数据
+            unique_dates = group['date'].unique()
+            for date_val in unique_dates:
+                # 确保日期是字符串格式
+                if hasattr(date_val, 'strftime'):
+                    date_str_val = date_val.strftime('%Y-%m-%d')
+                else:
+                    date_str_val = str(date_val)
+                
+                # 构造key：(日期, code, name)
+                key = (date_str_val, code, name)
+                
+                # 筛选出从该日期开始的K线数据
+                stock_kline = group[group['date'] >= date_val].sort_values('date').reset_index(drop=True)
+                
+                # 存储该股票从该日期开始的K线数据
+                stocks_data[key] = stock_kline
+        
+        logging.info(f"✅ 成功组织 {len(stocks_data)} 只股票的K线数据（含多日期）")
+        
+    except Exception as e:
+        logging.error(f"❌ 加载K线数据失败: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return
     
     # 步骤5: 使用线程池并行处理所有表
     # with语句确保线程池正确关闭
@@ -157,10 +273,12 @@ AND 最后一列 IS NULL
 def process(table, data_all, date, backtest_column):
     # 步骤1: 获取表名
     table_name = table['name']
+    logging.info(f"🔍 开始处理表: {table_name}, 日期: {date}")
     
     # 步骤2: 检查表是否存在
     if not mdb.checkTableIsExist(table_name):
         # 表不存在，跳过
+        logging.warning(f"⚠️ 表 {table_name} 不存在，跳过")
         return
 
     # 步骤3: 获取最后一列的列名（通常是rate_100）
@@ -171,20 +289,31 @@ def process(table, data_all, date, backtest_column):
     # 步骤4: 获取当前日期
     now_date = datetime.datetime.now().date()
     
-    # 步骤5: 构建SQL查询语句
-    # 查询条件：
-    # 1. date < 今天（只回测历史）
-    # 2. 最后一列 IS NULL（未回测过）
-    sql = f"SELECT * FROM `{table_name}` WHERE `date` < '{now_date}' AND `{column_tail}` is NULL"
+    # 【关键修复】如果传入了date参数，只回测该日期的记录
+    # 否则回测所有历史待回测记录
+    if date is not None:
+        date_str_for_query = str(date) if hasattr(date, 'year') else str(date)
+        sql = f"SELECT * FROM `{table_name}` WHERE `date` = '{date_str_for_query}' AND `{column_tail}` is NULL"
+        logging.info(f"📅 只回测指定日期: {date_str_for_query}")
+    else:
+        # 步骤5: 构建SQL查询语句
+        # 查询条件：
+        # 1. date < 今天（只回测历史）
+        # 2. 最后一列 IS NULL（未回测过）
+        sql = f"SELECT * FROM `{table_name}` WHERE `date` < '{now_date}' AND `{column_tail}` is NULL"
+        logging.info(f"📅 回测所有待回测的历史记录")
     
     try:
         # 步骤6: 执行查询，获取待回测的股票
         # read_sql()：执行SQL并返回DataFrame
         data = pd.read_sql(sql=sql, con=mdb.engine())
         
+        logging.info(f"📊 表 {table_name} 查询结果: {len(data.index) if data is not None else 0} 条待回测记录")
+        
         # 检查是否有数据
         if data is None or len(data.index) == 0:
             # 没有需要回测的股票
+            logging.info(f"✅ 表 {table_name} 没有待回测记录，跳过")
             return
 
         # 步骤7: 提取股票的(date, code, name)信息
@@ -200,10 +329,18 @@ def process(table, data_all, date, backtest_column):
         stocks = [tuple(x) for x in subset.values]
 
         # 步骤8: 并行计算收益率
-        results = run_check(stocks, data_all, date, backtest_column)
+        logging.info(f"🚀 开始计算 {len(stocks)} 只股票的收益率...")
+        
+        # 【关键修复】将date从datetime.date转换为字符串，以匹配data_all的key格式
+        date_str = str(date) if hasattr(date, 'year') else date
+        
+        results = run_check(stocks, data_all, date_str, backtest_column)
         if results is None:
             # 计算失败，跳过
+            logging.warning(f"⚠️ 表 {table_name} 收益率计算失败，结果为None")
             return
+        
+        logging.info(f"✅ 表 {table_name} 收益率计算完成，共 {len(results)} 条结果")
 
         # 步骤9: 将计算结果转换为DataFrame
         # results是字典：{(date, code, name): Series数据}
@@ -273,7 +410,7 @@ def run_check(stocks, data_all, date, backtest_column, workers=40):
                 executor.submit(
                     rate.get_rates,  # 要执行的函数
                     stock,  # 股票信息
-                    data_all.get((date, stock[1], stock[2])),  # 历史K线数据
+                    data_all.get(stock),  # 历史K线数据，直接使用stock作为key
                     backtest_column,  # 列名
                     len(backtest_column) - 1  # 计算天数（列数-2，减去date和code）
                 ): stock 
@@ -338,7 +475,19 @@ def run_check(stocks, data_all, date, backtest_column, workers=40):
 3. 策略选择：选出表现最好的策略
 """
 def main():
-    prepare()
+    """
+    回测验证任务入口
+    
+    支持命令行参数指定日期:
+    - python backtest_data_daily_job.py                    # 使用最新交易日
+    - python backtest_data_daily_job.py 2026-05-14         # 指定单个日期
+    - python backtest_data_daily_job.py 2026-05-10,2026-05-14  # 多个日期
+    - python backtest_data_daily_job.py 2026-05-10 2026-05-14  # 日期区间
+    """
+    logging.info("开始执行回测验证任务...")
+    # 使用运行模板执行任务，支持日期参数
+    runt.run_with_args(prepare)
+    logging.info("回测验证任务执行完成")
 
 
 # ==================== 程序入口 ====================

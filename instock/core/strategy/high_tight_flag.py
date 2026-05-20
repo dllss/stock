@@ -161,6 +161,9 @@ bool:
 """
 def check_high_tight(code_name, data, date=None, threshold=60, istop=False):
     
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     # ==================== 前提条件：检查机构参与 ====================
     # istop：龙虎榜机构标志
     # 必须为True（有机构参与）

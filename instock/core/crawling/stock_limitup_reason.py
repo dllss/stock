@@ -7,10 +7,9 @@ http://zx.10jqka.com.cn/event/api/getharden/date/2025-02-21/orderby/date/orderwa
 """
 
 import pandas as pd
-import requests
+from instock.core.eastmoney_fetcher import eastmoney_fetcher
 import re
 import numpy as np
-from instock.core.singleton_proxy import proxys
 
 __author__ = 'myh '
 __date__ = '2025/5/9 '
@@ -26,7 +25,8 @@ def stock_limitup_reason(date: str = "2025-02-27") -> pd.DataFrame:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 Thx"
     }
-    r = requests.get(url, proxies = proxys().get_proxies(), headers=headers)
+    fetcher = eastmoney_fetcher()
+    r = fetcher.make_request(url)
     data_json = r.json()
 
     data = data_json["data"]
@@ -100,7 +100,14 @@ def stock_limitup_detail(row):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36"
     }
-    r = requests.get(url, proxies = proxys().get_proxies(), headers=headers)
+    
+    # 【性能优化】添加轻微延迟，避免请求过快（同花顺无反爬）
+    import time
+    import random
+    time.sleep(random.uniform(0.5, 1.0))  # 每次请求前延迟0.5-1秒
+    
+    fetcher = eastmoney_fetcher()
+    r = fetcher.make_request(url)
     data_text = r.text
 
     # match_title = re.search(r"var title = '(.*?)';", data_text)

@@ -137,6 +137,9 @@ bool:
 """
 def check(code_name, data, date=None, threshold=60):
     
+    # 【关键修复】创建数据副本，避免只读问题
+    data = data.copy(deep=True)
+    
     # ==================== 步骤1: 数据预处理 ====================
     # 确定计算日期
     if date is None:
@@ -156,7 +159,9 @@ def check(code_name, data, date=None, threshold=60):
 
     # ==================== 步骤3: 计算年线 ====================
     # MA250：250日移动平均线（年线）
-    data.loc[:, 'ma250'] = tl.MA(data['close'].values, timeperiod=250)
+    # 【关键修复】确保数据类型为float64，避免talib报错
+    close_values = data['close'].values.astype(np.float64)
+    data.loc[:, 'ma250'] = tl.MA(close_values, timeperiod=250)
     # 处理NaN值（前249天没有年线）
     data['ma250'].values[np.isnan(data['ma250'].values)] = 0.0
 

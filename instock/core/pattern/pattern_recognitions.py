@@ -59,6 +59,7 @@ K线形态识别模块（第四层核心）
 
 # ==================== 导入必需的库 ====================
 import logging  # 日志记录
+import pandas as pd  # 数据处理库
 
 __author__ = 'myh '
 __date__ = '2023/3/24 '
@@ -152,7 +153,7 @@ def get_pattern_recognitions(data, stock_column, end_date=None, threshold=120, c
             )
         except Exception as e:
             # 单个形态识别失败，跳过（不影响其他形态）
-            pass
+            logging.debug(f"单个形态识别失败: {e}")
 
     # ==================== 步骤3: 检查结果 ====================
     # 检查数据是否有效
@@ -248,12 +249,15 @@ def get_pattern_recognition(code_name, data, stock_column, date=None, calc_thres
             # 添加代码列
             stockStat.loc[:, 'code'] = code
             
-            # 返回形态列和代码列
-            # iloc[0, -(len(stock_column) + 1):]：
-            # - iloc[0, ...]：第一行
-            # - -(len(stock_column) + 1)：倒数第N列开始
-            # - 包含所有形态列+code列
-            return stockStat.iloc[0, -(len(stock_column) + 1):]
+            # 构建返回的Series，确保包含code列
+            # 先获取所有形态列的值
+            pattern_values = stockStat.iloc[0][list(stock_column.keys())]
+            
+            # 创建包含code的Series
+            result_series = pd.Series(pattern_values)
+            result_series['code'] = code
+            
+            return result_series
         
         # 没有形态，返回None（不保存到数据库）
 

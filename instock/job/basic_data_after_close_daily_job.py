@@ -94,29 +94,17 @@ __date__ = '2023/3/10 '
 - 股东减持预警
 - 机构调仓分析
 """
-def save_after_close_stock_blocktrade_data(date):
-    try:
-        # 抓取大宗交易数据
-        data = stf.fetch_stock_blocktrade_data(date)
-        if data is None or len(data.index) == 0:
-            # 可能还没有数据（时间太早）
-            logging.info(f"大宗交易数据暂无：{date}（可能17:00后才有）")
-            return
-
-        table_name = tbs.TABLE_CN_STOCK_BLOCKTRADE['name']
-        # 删除老数据
-        if mdb.checkTableIsExist(table_name):
-            del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
-            mdb.executeSql(del_sql)
-            cols_type = None
-        else:
-            cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_BLOCKTRADE['columns'])
-
-        mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
-        
-        logging.info(f"保存大宗交易数据成功：{len(data)}条")
-    except Exception as e:
-        logging.error(f"basic_data_after_close_daily_job.save_stock_blocktrade_data处理异常：{e}")
+def save_after_close_stock_blocktrade_data(date, before=False):
+    """
+    大宗交易数据任务
+    已重构为调用独立任务文件: data_tasks/cn_stock_blocktrade_job.py
+    """
+    if before:
+        return
+    
+    # 导入并调用独立任务
+    from instock.job.data_tasks import cn_stock_blocktrade_job
+    cn_stock_blocktrade_job.save_block_trade_data(date, before=False)
 
 
 # ==================== 2. 保存尾盘抢筹数据 ====================
@@ -126,41 +114,40 @@ def save_after_close_stock_blocktrade_data(date):
 什么是尾盘抢筹？
 - 收盘前30分钟快速拉升
 - 可能是拉升收盘价
-- 也可能是主力急于建仓
-分析要点：
-- 拉升幅度：越大越强势
-- 成交量：放量说明真实
-- 后续走势：第二天是否高开
-意义：
+- 或主力急于建仓
+尾盘抢筹特点：
 - 强势股标志
-- 主力控盘能力强
-- 第二天可能继续强势
+- 主力控盘
+- 第二天可能强势
+数据包含：
+- 股票代码
+- 股票名称
+- 抢筹强度
+- 拉升幅度
+- 成交量变化
+分析要点：
+- 强度高：重点关注
+- 幅度大：可能持续
+- 配合量：更可靠
+数据发布时间：
+- 收盘后即有
+- 约15:00后
 使用场景：
-- 发现强势股
-- 短线交易机会
-- 尾盘竞价参考
+- 短线选股
+- 竞价参考
+- 强势股跟踪
 """
-def save_after_close_stock_chip_race_end_data(date):
-    try:
-        # 抓取尾盘抢筹数据
-        data = stf.fetch_stock_chip_race_end(date)
-        if data is None or len(data.index) == 0:
-            return
-
-        table_name = tbs.TABLE_CN_STOCK_CHIP_RACE_END['name']
-        # 删除老数据
-        if mdb.checkTableIsExist(table_name):
-            del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
-            mdb.executeSql(del_sql)
-            cols_type = None
-        else:
-            cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_CHIP_RACE_END['columns'])
-
-        mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
-        
-        logging.info(f"保存尾盘抢筹数据成功：{len(data)}条")
-    except Exception as e:
-        logging.error(f"basic_data_after_close_daily_job.save_after_close_stock_chip_race_end_data：{e}")
+def save_after_close_stock_chip_race_end_data(date, before=False):
+    """
+    尾盘抢筹数据任务
+    已重构为调用独立任务文件: data_tasks/cn_stock_chip_race_end_job.py
+    """
+    if before:
+        return
+    
+    # 导入并调用独立任务
+    from instock.job.data_tasks import cn_stock_chip_race_end_job
+    cn_stock_chip_race_end_job.save_chip_race_end_data(date, before=False)
 
 
 # ==================== 主函数 ====================

@@ -11,6 +11,7 @@ import time
 import pandas as pd
 from tqdm import tqdm
 from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.config.delay_manager import sleep_with_delay
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
@@ -51,8 +52,8 @@ def stock_fhps_em(date: str = "20231231") -> pd.DataFrame:
     total_pages = int(data_json["result"]["pages"])
     big_df = pd.DataFrame()
     for page in tqdm(range(1, total_pages + 1), leave=False):
-        # 添加随机延迟，避免爬取过快
-        time.sleep(random.uniform(1, 1.5))
+        # 添加随机延迟，控制每分钟请求数<10次（间隔9-12秒）
+        sleep_with_delay('normal')
         params.update({"pageNumber": page})
         r = fetcher.make_request(url, params=params)
         data_json = r.json()

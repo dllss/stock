@@ -1,0 +1,947 @@
+{% extends "layout/default.html" %}
+
+{% block main_content %}
+<!-- AG Grid CSS (本地文件，无需网络) -->
+<link rel="stylesheet" href="/static/css/ag-grid.min.css">
+<link rel="stylesheet" href="/static/css/ag-theme-alpine.min.css">
+
+<!-- AG Grid JS (本地文件，无需网络) -->
+<script src="/static/js/ag-grid/ag-grid-community.min.js"></script>
+<!-- AG Grid 列宽配置（外部文件）-->
+<script src="/static/js/ag-grid-column-widths.js"></script>
+
+<!-- Bootstrap Datepicker -->
+<link rel="stylesheet" href="/static/css/bootstrap-datepicker3.min.css" />
+<script src="/static/js/bootstrap-datepicker.min.js"></script>
+<script src="/static/js/bootstrap-datepicker.zh-CN.min.js"></script>
+
+<div class="page-container">
+    <!-- 顶部工具栏 - 现代化卡片设计 -->
+    <div class="table-header">
+        <!-- 左侧：标题和日期 -->
+        <div class="header-left">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="title-accent"></div>
+                <span class="title-text">
+                    {{ web_module_data.name }}
+                </span>
+                {% if web_module_data.description %}
+                <!-- 帮助图标 -->
+                <button id="help-btn" class="help-button" title="查看详细说明">
+                    <i class="fa fa-question-circle"></i>
+                </button>
+                {% end %}
+            </div>
+            <div class="date-section">
+                <span class="date-icon">📅</span>
+                <!-- 前一天按钮 -->
+                <button id="prev-date" class="date-nav-btn" title="前一天">
+                    <i class="fa fa-chevron-left"></i>
+                </button>
+                <input type="hidden" id="dateid_old">
+                <input type="text" value="{{ date_now }}" id="dateid" 
+                       class="input-group-sm form-control date-picker date-input">
+                <!-- 后一天按钮 -->
+                <button id="next-date" class="date-nav-btn" title="后一天">
+                    <i class="fa fa-chevron-right"></i>
+                </button>
+            </div>
+            <!-- 状态信息 -->
+            <div class="status-info">
+                <span>总记录：<b id="total-count" class="status-total">0</b> 条</span>
+                <span class="status-divider">|</span>
+                <span>筛选后：<b id="filtered-count" class="status-filtered">0</b> 条</span>
+            </div>
+        </div>
+        
+        <!-- 右侧：按钮组 -->
+        <div class="button-group">
+            <button id="resetFilter" class="btn btn-sm toolbar-btn">
+                <i class="fa fa-refresh"></i> 重置筛选
+            </button>
+            <button id="saveExcel" class="btn btn-sm toolbar-btn">
+                <i class="fa fa-download"></i> 导出Excel
+            </button>
+            <button id="switchToOldPage" class="btn btn-sm toolbar-btn">
+                <i class="fa fa-exchange"></i> 切换到老页面
+            </button>
+        </div>
+    </div>
+
+    <!-- AG Grid 容器 - 现代化卡片设计 -->
+    <div id="ag-grid-container" class="ag-theme-alpine grid-container">
+    </div>
+</div>
+
+<!-- 帮助信息弹窗 -->
+<div id="help-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">{{ web_module_data.name }}</h3>
+            <button id="modal-close" class="modal-close-btn">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="module-description">
+                {{ web_module_data.description }}
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="modal-ok" class="btn btn-primary">我知道了</button>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    const nameParam = $.getUrlVar('table_name');
+    let dateParam = "{{ date_now }}";
+    let gridApi = null;
+    let allData = [];
+
+    $(document).ready(function () {
+        // 检查 AG Grid 是否加载
+        if (typeof agGrid === 'undefined') {
+            $('#ag-grid-container').html('<div style="padding: 20px; text-align: center; color: red;">AG Grid 加载失败，请刷新页面或检查网络连接。</div>');
+            return;
+        }
+        
+        console.log('✅ AG Grid 已加载, 版本:', agGrid.version);
+        
+        // 初始化日期选择器
+        $(".date-picker").datepicker({
+            language: 'zh-CN',
+            format: "yyyy-mm-dd",
+            showOtherMonths: true,
+            selectOtherMonths: false,
+            autoclose: true,
+            todayHighlight: true
+        }).on('changeDate', function(ev) {
+            const newDate = ev.format('yyyy-mm-dd');
+            
+            console.log(`📅 日期选择器改变: ${dateParam} -> ${newDate}`);
+            
+            // 更新URL中的date参数（不刷新页面）
+            const url = new URL(window.location.href);
+            url.searchParams.set('date', newDate);
+            window.history.pushState({}, '', url);
+            
+            // 【重要】同步更新左侧菜单的链接
+            updateLeftMenuDate(newDate);
+            
+            // 重新加载数据
+            loadData();
+        });
+
+        // 初始化 AG Grid
+        initAgGrid();
+        
+        // 加载数据
+        loadData();
+
+        // 绑定事件
+        bindEvents();
+    });
+
+    // 日期导航函数
+    function navigateDate(days) {
+        const currentDate = new Date(dateParam);
+        currentDate.setDate(currentDate.getDate() + days);
+        
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const newDate = `${year}-${month}-${day}`;
+        
+        console.log(`📅 切换日期: ${dateParam} -> ${newDate} (${days > 0 ? '后' : '前'}${Math.abs(days)}天)`);
+        
+        // 更新全局变量
+        dateParam = newDate;
+        
+        // 更新输入框
+        document.getElementById('dateid').value = newDate;
+        document.getElementById('dateid_old').value = '';  // 清空旧日期，强制刷新
+        
+        // 更新URL参数
+        const url = new URL(window.location.href);
+        url.searchParams.set('date', newDate);
+        window.history.pushState({}, '', url);
+        
+        // 【重要】同步更新左侧菜单的链接
+        updateLeftMenuDate(newDate);
+        
+        // 直接调用 loadData 重新加载数据
+        loadData();
+    }
+    
+    // 更新左侧菜单的日期参数
+    function updateLeftMenuDate(newDate) {
+        const menuLinks = $('#sidebar a[data-table-url]');
+        if (menuLinks.length === 0) {
+            console.warn('⚠️  未找到左侧菜单链接');
+            return;
+        }
+        
+        menuLinks.each(function(index) {
+            const baseUrl = $(this).data('table-url');
+            if (!baseUrl) return;
+            
+            // 移除已有的date参数
+            let cleanUrl = baseUrl;
+            if (cleanUrl.includes('?')) {
+                const parts = cleanUrl.split('?');
+                const path = parts[0];
+                const params = parts[1].split('&').filter(p => !p.startsWith('date='));
+                cleanUrl = path + (params.length > 0 ? '?' + params.join('&') : '');
+            }
+            
+            // 添加新的date参数
+            const separator = cleanUrl.indexOf('?') >= 0 ? '&' : '?';
+            const newHref = cleanUrl + separator + 'date=' + newDate;
+            $(this).attr('href', newHref);
+            
+            // 同时更新 data-table-url 属性
+            $(this).data('table-url', cleanUrl);
+        });
+        
+        console.log(`✅ 已更新 ${menuLinks.length} 个左侧菜单链接的日期为: ${newDate}`);
+    }
+
+    function initAgGrid() {
+        // 获取列配置（从后端传入）- 使用 raw 避免 HTML 转义
+        const colConfigs = {% raw web_module_data.column_names %};
+        
+        const columnDefs = colConfigs.map(col => {
+            // 定义所有日期字段
+            const dateFields = ['date', 'listing_date', 'trade_date', 'report_date', 'ranking_date', 'plan_date', 'record_date', 'ex_dividend_date'];
+            const isDateField = dateFields.includes(col.value);
+            
+            // 定义所有涨跌幅字段（需要颜色处理）
+            const changeRateFields = [
+                'change_rate',           // 涨跌幅
+                'change_rate_3',         // 3日涨跌幅
+                'change_rate_5',         // 5日涨跌幅
+                'change_rate_10',        // 10日涨跌幅
+                'speed_increase_5',      // 5分钟涨跌
+                'speed_increase_60',     // 60日涨跌幅
+                'speed_increase_all'     // 年初至今涨跌幅
+            ];
+            const isChangeRateField = changeRateFields.includes(col.value);
+            
+            // Auto-generated column width configuration for all tables
+            // Formula: width = max(data_length, min(header_length, 6)) * 14px + 20px padding
+            // Based on tablestructure.py analysis of 21 tables with 979 total columns
+            // Headers >6 characters will wrap but only count as 6 chars for width calculation
+            // Configuration is loaded from external file: ag-grid-column-widths.js
+            const columnWidths = getColumnWidthConfig();
+            
+            // 获取当前列的宽度配置
+            // 首先尝试从当前表的配置中查找，如果找不到则使用全局配置
+            const tableConfig = columnWidths[nameParam] || {};
+            const globalConfig = columnWidths['_global'] || {};
+            const widthConfig = tableConfig[col.value] || globalConfig[col.value] || getDefaultWidthConfig();
+            
+            // 获取表头名称
+            const headerName = col.caption || col.displayName || col.headerName;
+            // 计算表头字符数
+            const headerLength = headerName ? headerName.length : 0;
+            
+            return {
+                headerName: headerName,
+                field: col.value,
+                sortable: true,
+                filter: true,
+                resizable: true,
+                minWidth: widthConfig.min,
+                maxWidth: widthConfig.max,
+                width: widthConfig.default,
+                // 如果是代码列，添加超链接
+                cellRenderer: col.value === 'code' ? codeCellRenderer : (isChangeRateField ? changeRateCellRenderer : undefined),
+                // 如果是日期字段，格式化日期
+                valueFormatter: isDateField ? dateFormatter : undefined,
+                // 表头超过6个字符时使用允许换行的样式类
+                headerClass: headerLength > 6 ? 'ag-header-cell-wrap' : 'ag-header-cell-nowarp',
+                // 启用 tooltip 显示完整内容
+                tooltipField: col.value,
+                tooltipValueGetter: (params) => {
+                    // 如果值为 null 或 undefined，返回提示
+                    if (params.value === null || params.value === undefined) {
+                        return '无数据';
+                    }
+                    // 返回完整值
+                    return `${headerName}: ${params.value}`;
+                },
+                // 设置 tooltip 样式
+                tooltipComponentParams: { color: '#000000' }
+            };
+        });
+
+        const gridOptions = {
+            columnDefs: columnDefs,
+            rowData: [],
+            pagination: false,
+            animateRows: true,
+            rowSelection: 'single',
+            domLayout: 'normal',  // 使用正常布局，配合虚拟滚动
+            suppressScrollOnNewData: true,  // 新数据不自动滚动
+            ensureDomOrder: true,  // 优化 DOM 顺序
+            // 启用 tooltip
+            enableBrowserTooltips: true,
+            // 性能优化配置
+            rowBuffer: 10,  // 缓冲区行数（默认10）
+            // 注意：以下配置仅适用于 Server-Side Row Model，Client-Side 模型会忽略
+            // maxBlocksInCache: 2,  // 最大缓存块数
+            // cacheBlockSize: 100,  // 缓存块大小
+            // blockLoadDebounceMillis: 50,  // 加载防抖时间
+            onGridReady: params => { gridApi = params.api; },
+            onFilterChanged: () => { updateStatusBar(); },
+        };
+
+        // 创建 Grid
+        const eGridDiv = document.querySelector('#ag-grid-container');
+        gridApi = agGrid.createGrid(eGridDiv, gridOptions);
+    }
+
+    // 股票代码单元格渲染器 - 跳转到东方财富
+    function codeCellRenderer(params) {
+        const code = params.value;
+        if (!code) return '';
+        
+        // 跳转到东方财富个股页面
+        const eastmoneyUrl = `https://quote.eastmoney.com/${code}.html`;
+        
+        return `<a href="${eastmoneyUrl}" 
+                   target="_blank" 
+                   style="color: #1890ff; text-decoration: none;">
+                   ${code}
+                </a>`;
+    }
+
+    // 涨跌幅单元格渲染器 - 正数红色，负数绿色
+    function changeRateCellRenderer(params) {
+        const value = params.value;
+        if (value === null || value === undefined || value === '') return '';
+        
+        const numValue = parseFloat(value);
+        if (isNaN(numValue)) return value;
+        
+        // 中国股市：红涨绿跌
+        let color = '#333';  // 默认黑色
+        let sign = '';
+        
+        if (numValue > 0) {
+            color = '#f5222d';  // 红色
+            sign = '+';
+        } else if (numValue < 0) {
+            color = '#52c41a';  // 绿色
+        }
+        
+        return `<span style="color: ${color}; font-weight: 600;">${sign}${value}</span>`;
+    }
+
+    // 日期格式化器 - 处理各种日期格式
+    function dateFormatter(params) {
+        const value = params.value;
+        if (!value && value !== 0) return '';
+        
+        // 如果是 OADate 格式（Excel 日期数字，例如 "/OADate(46142.0)/"）
+        if (typeof value === 'string' && value.includes('/OADate(')) {
+            const match = value.match(/\/OADate\((\d+\.?\d*)\)\//);
+            if (match) {
+                const oaDate = parseFloat(match[1]);
+                // OADate 转换为 JavaScript Date
+                // OADate 的基准是 1899-12-30
+                const jsDate = new Date((oaDate - 25569) * 86400 * 1000);
+                return formatDate(jsDate);
+            }
+        }
+        
+        // 如果是数字（可能是时间戳或 OADate 数字）
+        if (typeof value === 'number') {
+            // 判断是秒级还是毫秒级时间戳
+            if (value > 1000000000000) {
+                // 毫秒级时间戳
+                return formatDate(new Date(value));
+            } else if (value > 1000000000) {
+                // 秒级时间戳
+                return formatDate(new Date(value * 1000));
+            } else if (value > 20000) {
+                // 可能是 OADate 数字
+                const jsDate = new Date((value - 25569) * 86400 * 1000);
+                return formatDate(jsDate);
+            }
+        }
+        
+        // 如果已经是字符串格式的日期
+        if (typeof value === 'string') {
+            // 如果已经是 YYYY-MM-DD 格式，直接返回
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                return value;
+            }
+            // 尝试解析其他格式的日期字符串
+            const parsed = new Date(value);
+            if (!isNaN(parsed.getTime())) {
+                return formatDate(parsed);
+            }
+            return value;
+        }
+        
+        // 如果是 Date 对象
+        if (value instanceof Date) {
+            return formatDate(value);
+        }
+        
+        return value;
+    }
+    
+    // 格式化日期为 YYYY-MM-DD
+    function formatDate(date) {
+        if (!date || isNaN(date.getTime())) return '';
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // 加载数据
+    function loadData() {
+        const dateParam_old = document.getElementById("dateid_old").value;
+        dateParam = document.getElementById('dateid').value;
+        
+        if (dateParam_old === dateParam && allData.length > 0) {
+            return;
+        }
+        
+        document.getElementById("dateid_old").value = dateParam;
+
+        if (gridApi) {
+            gridApi.showLoadingOverlay();
+        }
+
+        fetch(`/instock/api_data?name=${nameParam}&date=${dateParam}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                allData = data;
+                
+                if (gridApi) {
+                    // 使用新版 API 设置行数据（避免废弃警告）
+                    gridApi.setGridOption('rowData', data);
+                    gridApi.hideOverlay();
+                    updateStatusBar();
+                }
+            })
+            .catch(error => {
+                if (gridApi) {
+                    gridApi.showNoRowsOverlay();
+                }
+                $('#ag-grid-container').prepend(
+                    `<div style="padding: 20px; background: #fff3cd; border: 1px solid #ffc107; margin: 10px; border-radius: 4px;">
+                        <strong>⚠️ 数据加载失败</strong><br>
+                        错误信息: ${error.message}<br>
+                        请检查：1) Web服务是否运行 2) 数据库中是否有数据 3) 表名是否正确
+                    </div>`
+                );
+            });
+    }
+
+    // 更新状态栏
+    function updateStatusBar() {
+        if (!gridApi) return;
+        
+        const total = allData.length || 0;
+        const filtered = gridApi.getDisplayedRowCount() || 0;
+        
+        const totalCountEl = document.getElementById('total-count');
+        const filteredCountEl = document.getElementById('filtered-count');
+        
+        if (totalCountEl) totalCountEl.textContent = total;
+        if (filteredCountEl) filteredCountEl.textContent = filtered;
+    }
+
+    // 绑定按钮事件
+    function bindEvents() {
+        // 重置筛选
+        document.getElementById('resetFilter').onclick = () => {
+            if (gridApi) {
+                gridApi.setFilterModel(null);
+                updateStatusBar();
+            }
+        };
+
+        // 导出Excel
+        document.getElementById('saveExcel').onclick = () => {
+            if (gridApi) {
+                gridApi.exportDataAsExcel({
+                    fileName: `${nameParam}_${dateParam}.xlsx`,
+                    sheetName: 'Stock Data'
+                });
+            }
+        };
+        
+        // 切换到老页面
+        document.getElementById('switchToOldPage').onclick = () => {
+            // 跳转到老版本的 stock_web.html 页面
+            window.location.href = `/instock/data?table_name=${nameParam}&date=${dateParam}`;
+        };
+        
+        // 前一天按钮
+        document.getElementById('prev-date').onclick = () => {
+            navigateDate(-1);
+        };
+        
+        // 后一天按钮
+        document.getElementById('next-date').onclick = () => {
+            navigateDate(1);
+        };
+        
+        // 帮助按钮 - 显示模块说明
+        const helpBtn = document.getElementById('help-btn');
+        if (helpBtn) {
+            helpBtn.onclick = () => {
+                showHelpModal();
+            };
+        }
+        
+        // 弹窗关闭按钮
+        const modalClose = document.getElementById('modal-close');
+        if (modalClose) {
+            modalClose.onclick = () => {
+                hideHelpModal();
+            };
+        }
+        
+        // 弹窗确定按钮
+        const modalOk = document.getElementById('modal-ok');
+        if (modalOk) {
+            modalOk.onclick = () => {
+                hideHelpModal();
+            };
+        }
+        
+        // 点击弹窗外部关闭
+        const modalOverlay = document.getElementById('help-modal');
+        if (modalOverlay) {
+            modalOverlay.onclick = (e) => {
+                if (e.target === modalOverlay) {
+                    hideHelpModal();
+                }
+            };
+        }
+    }
+    
+    // 显示帮助弹窗
+    function showHelpModal() {
+        const modal = document.getElementById('help-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            // 强制重排以确保样式应用
+            void modal.offsetWidth;
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+        }
+    }
+    
+    // 隐藏帮助弹窗
+    function hideHelpModal() {
+        const modal = document.getElementById('help-modal');
+        if (modal) {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
+    }
+</script>
+
+<style>
+    /* 页面主容器 */
+    .page-container {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(180deg, #f8f9fc 0%, #ffffff 100%);
+        padding: 12px;
+    }
+    
+    /* 顶部工具栏 - 现代化卡片设计 */
+    .table-header {
+        width: 100%;
+        padding: 16px 24px;
+        background: #ffffff;
+        border-radius: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        margin-bottom: 12px;
+        border: 1px solid #e8eaed;
+    }
+    
+    /* 左侧标题和日期区域 */
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+    }
+    
+    /* 标题装饰条 */
+    .title-accent {
+        width: 4px;
+        height: 24px;
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        border-radius: 2px;
+    }
+    
+    /* 标题文本 */
+    .title-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+        letter-spacing: 0.5px;
+    }
+    
+    /* 日期选择器区域 */
+    .date-section {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-left: 20px;
+        border-left: 2px solid #e8eaed;
+    }
+    
+    /* 日期图标 */
+    .date-icon {
+        color: #6b7280;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    /* 日期导航按钮 */
+    .date-nav-btn {
+        background: transparent;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #667eea;
+        font-size: 12px;
+        padding: 0;
+    }
+    
+    .date-nav-btn:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+    
+    .date-nav-btn:active {
+        transform: translateY(0);
+    }
+    
+    /* 日期输入框 */
+    .date-input {
+        width: 140px;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        background: #f8f9fc;
+        font-size: 13px;
+        padding: 8px 12px;
+        font-weight: 500;
+        color: #1a1a1a;
+        transition: all 0.2s ease;
+    }
+    
+    /* 右侧按钮组 */
+    .button-group {
+        display: flex;
+        gap: 12px;
+    }
+    
+    /* 工具栏按钮 */
+    .toolbar-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 18px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .toolbar-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important;
+    }
+    
+    /* AG Grid 容器 */
+    .grid-container {
+        flex: 1;
+        width: 100%;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        border: 1px solid #e8eaed;
+    }
+    
+    .status-icon { color: #667eea; font-size: 14px; }
+    
+    /* 状态信息（集成到工具栏） */
+    .status-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        margin-left: 15px;
+        background: rgba(102, 126, 234, 0.1);
+        border-radius: 8px;
+        font-size: 12px;
+        color: #374151;
+        border: 1px solid rgba(102, 126, 234, 0.2);
+    }
+    
+    .status-info .status-total { color: #667eea; font-weight: 600; }
+    .status-info .status-filtered { color: #764ba2; font-weight: 600; }
+    .status-info .status-divider { color: #d1d5db; }
+    
+    /* AG Grid 现代化主题 */
+    .ag-theme-alpine {
+        --ag-font-size: 13px;
+        --ag-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --ag-header-background-color: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --ag-header-foreground-color: #ffffff;
+        --ag-row-hover-color: #f0f7ff;
+        --ag-selected-row-background-color: #e3f2fd;
+        --ag-odd-row-background-color: #fafbfc;
+        --ag-border-color: #e8e8e8;
+        --ag-grid-size: 8px;
+        /* Tooltip 样式 */
+        --ag-tooltip-background-color: #1f2937;
+        --ag-tooltip-foreground-color: #ffffff;
+        --ag-tooltip-border-radius: 6px;
+        --ag-tooltip-padding: 8px 12px;
+        --ag-tooltip-font-size: 12px;
+        --ag-tooltip-max-width: 400px;
+    }
+    
+    /* 表头样式 */
+    .ag-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        border-bottom: 2px solid #5a6fd6;
+        min-height: 40px;
+        border-top: none !important;
+    }
+    
+    .ag-header-cell {
+        font-weight: 600;
+        font-size: 13px;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        color: #ffffff !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.2);
+        line-height: 1.4 !important;
+        padding: 8px 12px !important;
+        text-align: center;
+        display: flex !important;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .ag-header-cell-nowarp { white-space: nowrap !important; text-overflow: clip !important; overflow: hidden !important; }
+    .ag-header-cell-wrap { white-space: normal !important; word-wrap: break-word; word-break: break-all; }
+    .ag-header-cell-resize, .ag-root-wrapper, .ag-root { border-top: none !important; }
+    .ag-header-cell-label { color: #ffffff !important; }
+    
+    /* 表格主体 */
+    .ag-root-wrapper { border-radius: 0 0 8px 8px; overflow: hidden; margin-top: 0 !important; }
+    .ag-row-even { background-color: #fafbfc; }
+    .ag-row-odd { background-color: #ffffff; }
+    .ag-row-hover { background-color: #f0f7ff !important; cursor: pointer; transition: background-color 0.2s ease; }
+    .ag-row-selected { background-color: #e3f2fd !important; border-left: 3px solid #2196f3; }
+    
+    /* 单元格 */
+    .ag-cell {
+        padding: 8px 12px;
+        border-right: 1px solid #f0f0f0;
+        line-height: 1.5;
+        display: flex !important;
+        align-items: center;
+        justify-content: flex-start;
+    }
+    
+    /* 分页器 */
+    .ag-paging-panel { padding: 12px 16px; background: #ffffff; border-top: 1px solid #e8e8e8; border-radius: 0 0 8px 8px; box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04); }
+    .ag-paging-button { border-radius: 4px; transition: all 0.2s ease; }
+    .ag-paging-button:hover { background-color: #667eea; color: #ffffff; }
+    
+    /* 链接 */
+    .ag-cell a { color: #2196f3; text-decoration: none; font-weight: 500; transition: all 0.3s ease; padding: 2px 6px; border-radius: 4px; }
+    .ag-cell a:hover { color: #1565c0; background-color: #e3f2fd; text-decoration: none; }
+    
+    /* 其他 */
+    .ag-filter { border-radius: 4px; }
+    .ag-loading-overlay { background: rgba(255, 255, 255, 0.9); }
+    
+    /* 按钮悬停 */
+    #resetFilter:hover, #saveExcel:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important; }
+    
+    /* 帮助按钮样式 */
+    .help-button {
+        background: transparent;
+        border: none;
+        color: #667eea;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .help-button:hover {
+        background: rgba(102, 126, 234, 0.1);
+        color: #764ba2;
+        transform: scale(1.1);
+    }
+    
+    /* 弹窗遮罩层 */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .modal-overlay.show {
+        display: flex !important;
+        opacity: 1;
+    }
+    
+    /* 弹窗内容 */
+    .modal-content {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        max-width: 600px;
+        width: 90%;
+        max-height: 80vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+    }
+    
+    .modal-overlay.show .modal-content {
+        transform: scale(1);
+    }
+    
+    /* 弹窗头部 */
+    .modal-header {
+        padding: 20px 24px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #ffffff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #5a6fd6;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        text-align: left;
+        flex: 1;
+    }
+    
+    .modal-close-btn {
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        margin-left: auto;
+    }
+    
+    .modal-close-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: rotate(90deg);
+    }
+    
+    /* 弹窗主体 */
+    .modal-body {
+        padding: 24px;
+        overflow-y: auto;
+        flex: 1;
+    }
+    
+    .module-description {
+        font-size: 14px;
+        line-height: 1.8;
+        color: #333333;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    /* 弹窗底部 */
+    .modal-footer {
+        padding: 16px 24px;
+        background: #f8f9fc;
+        border-top: 1px solid #e8eaed;
+        display: flex;
+        justify-content: flex-end;
+    }
+    
+    .modal-footer .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 24px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+    
+    .modal-footer .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+</style>
+{% end %}

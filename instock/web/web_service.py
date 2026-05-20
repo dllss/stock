@@ -153,7 +153,8 @@ class Application(tornado.web.Application):
             
             # 数据表格模块
             (r"/instock/api_data", dataTableHandler.GetStockDataHandler),  # API接口：返回JSON数据
-            (r"/instock/data", dataTableHandler.GetStockHtmlHandler),  # HTML页面：返回数据表格页面
+            (r"/instock/data", dataTableHandler.GetStockHtmlHandler),  # HTML页面：SpreadJS版本
+            (r"/instock/data/aggrid", dataTableHandler.GetStockHtmlAgGridHandler),  # HTML页面：AG Grid版本（新）
             
             # 指标图表模块
             (r"/instock/data/indicators", dataIndicatorsHandler.GetDataIndicatorsHandler),  # 指标数据接口

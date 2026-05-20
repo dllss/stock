@@ -1,0 +1,579 @@
+            // Auto-generated column width configuration
+            // Formula: width = max(data_length, min(header_length, 6)) * 14px + 20px
+            const columnWidths = {
+                // 每日ETF数据 (cn_etf_spot)
+                'change_rate': { min: 118, max: 158, default: 132 }, // 涨跌幅: 表头3字, 数据8字符
+                'code': { min: 70, max: 100, default: 80 }, // 代码: 表头2字
+                'date': { min: 144, max: 192, default: 160 }, // 日期: 表头2字, 数据10字符
+                'deal_amount': { min: 169, max: 225, default: 188 }, // 成交额: 表头3字, 数据12字符
+                'free_cap': { min: 169, max: 225, default: 188 }, // 流通市值: 表头4字, 数据12字符
+                'high_price': { min: 118, max: 158, default: 132 }, // 最高价: 表头3字, 数据8字符
+                'low_price': { min: 118, max: 158, default: 132 }, // 最低价: 表头3字, 数据8字符
+                'name': { min: 70, max: 100, default: 80 }, // 名称: 表头2字
+                'new_price': { min: 118, max: 158, default: 132 }, // 最新价: 表头3字, 数据8字符
+                'open_price': { min: 118, max: 158, default: 132 }, // 开盘价: 表头3字, 数据8字符
+                'pre_close_price': { min: 118, max: 158, default: 132 }, // 昨收: 表头2字, 数据8字符
+                'total_market_cap': { min: 169, max: 225, default: 188 }, // 总市值: 表头3字, 数据12字符
+                'turnoverrate': { min: 118, max: 158, default: 132 }, // 换手率: 表头3字, 数据8字符
+                'ups_downs': { min: 118, max: 158, default: 132 }, // 涨跌额: 表头3字, 数据8字符
+                'volume': { min: 169, max: 225, default: 188 }, // 成交量: 表头3字, 数据12字符
+
+                // 我的关注 (cn_stock_attention)
+                'datetime': { min: 144, max: 192, default: 160 }, // 日期: 表头2字, 数据10字符
+
+                // 股票回归测试数据 (cn_stock_backtest_data)
+                'rate_1': { min: 118, max: 158, default: 132 }, // 1日收益率: 表头5字, 数据8字符
+                'rate_10': { min: 118, max: 158, default: 132 }, // 10日收益率: 表头6字, 数据8字符
+                'rate_100': { min: 118, max: 158, default: 132 }, // 100日收益率: 表头7字, 数据8字符
+                'rate_11': { min: 118, max: 158, default: 132 }, // 11日收益率: 表头6字, 数据8字符
+                'rate_12': { min: 118, max: 158, default: 132 }, // 12日收益率: 表头6字, 数据8字符
+                'rate_13': { min: 118, max: 158, default: 132 }, // 13日收益率: 表头6字, 数据8字符
+                'rate_14': { min: 118, max: 158, default: 132 }, // 14日收益率: 表头6字, 数据8字符
+                'rate_15': { min: 118, max: 158, default: 132 }, // 15日收益率: 表头6字, 数据8字符
+                'rate_16': { min: 118, max: 158, default: 132 }, // 16日收益率: 表头6字, 数据8字符
+                'rate_17': { min: 118, max: 158, default: 132 }, // 17日收益率: 表头6字, 数据8字符
+                'rate_18': { min: 118, max: 158, default: 132 }, // 18日收益率: 表头6字, 数据8字符
+                'rate_19': { min: 118, max: 158, default: 132 }, // 19日收益率: 表头6字, 数据8字符
+                'rate_2': { min: 118, max: 158, default: 132 }, // 2日收益率: 表头5字, 数据8字符
+                'rate_20': { min: 118, max: 158, default: 132 }, // 20日收益率: 表头6字, 数据8字符
+                'rate_21': { min: 118, max: 158, default: 132 }, // 21日收益率: 表头6字, 数据8字符
+                'rate_22': { min: 118, max: 158, default: 132 }, // 22日收益率: 表头6字, 数据8字符
+                'rate_23': { min: 118, max: 158, default: 132 }, // 23日收益率: 表头6字, 数据8字符
+                'rate_24': { min: 118, max: 158, default: 132 }, // 24日收益率: 表头6字, 数据8字符
+                'rate_25': { min: 118, max: 158, default: 132 }, // 25日收益率: 表头6字, 数据8字符
+                'rate_26': { min: 118, max: 158, default: 132 }, // 26日收益率: 表头6字, 数据8字符
+                'rate_27': { min: 118, max: 158, default: 132 }, // 27日收益率: 表头6字, 数据8字符
+                'rate_28': { min: 118, max: 158, default: 132 }, // 28日收益率: 表头6字, 数据8字符
+                'rate_29': { min: 118, max: 158, default: 132 }, // 29日收益率: 表头6字, 数据8字符
+                'rate_3': { min: 118, max: 158, default: 132 }, // 3日收益率: 表头5字, 数据8字符
+                'rate_30': { min: 118, max: 158, default: 132 }, // 30日收益率: 表头6字, 数据8字符
+                'rate_31': { min: 118, max: 158, default: 132 }, // 31日收益率: 表头6字, 数据8字符
+                'rate_32': { min: 118, max: 158, default: 132 }, // 32日收益率: 表头6字, 数据8字符
+                'rate_33': { min: 118, max: 158, default: 132 }, // 33日收益率: 表头6字, 数据8字符
+                'rate_34': { min: 118, max: 158, default: 132 }, // 34日收益率: 表头6字, 数据8字符
+                'rate_35': { min: 118, max: 158, default: 132 }, // 35日收益率: 表头6字, 数据8字符
+                'rate_36': { min: 118, max: 158, default: 132 }, // 36日收益率: 表头6字, 数据8字符
+                'rate_37': { min: 118, max: 158, default: 132 }, // 37日收益率: 表头6字, 数据8字符
+                'rate_38': { min: 118, max: 158, default: 132 }, // 38日收益率: 表头6字, 数据8字符
+                'rate_39': { min: 118, max: 158, default: 132 }, // 39日收益率: 表头6字, 数据8字符
+                'rate_4': { min: 118, max: 158, default: 132 }, // 4日收益率: 表头5字, 数据8字符
+                'rate_40': { min: 118, max: 158, default: 132 }, // 40日收益率: 表头6字, 数据8字符
+                'rate_41': { min: 118, max: 158, default: 132 }, // 41日收益率: 表头6字, 数据8字符
+                'rate_42': { min: 118, max: 158, default: 132 }, // 42日收益率: 表头6字, 数据8字符
+                'rate_43': { min: 118, max: 158, default: 132 }, // 43日收益率: 表头6字, 数据8字符
+                'rate_44': { min: 118, max: 158, default: 132 }, // 44日收益率: 表头6字, 数据8字符
+                'rate_45': { min: 118, max: 158, default: 132 }, // 45日收益率: 表头6字, 数据8字符
+                'rate_46': { min: 118, max: 158, default: 132 }, // 46日收益率: 表头6字, 数据8字符
+                'rate_47': { min: 118, max: 158, default: 132 }, // 47日收益率: 表头6字, 数据8字符
+                'rate_48': { min: 118, max: 158, default: 132 }, // 48日收益率: 表头6字, 数据8字符
+                'rate_49': { min: 118, max: 158, default: 132 }, // 49日收益率: 表头6字, 数据8字符
+                'rate_5': { min: 118, max: 158, default: 132 }, // 5日收益率: 表头5字, 数据8字符
+                'rate_50': { min: 118, max: 158, default: 132 }, // 50日收益率: 表头6字, 数据8字符
+                'rate_51': { min: 118, max: 158, default: 132 }, // 51日收益率: 表头6字, 数据8字符
+                'rate_52': { min: 118, max: 158, default: 132 }, // 52日收益率: 表头6字, 数据8字符
+                'rate_53': { min: 118, max: 158, default: 132 }, // 53日收益率: 表头6字, 数据8字符
+                'rate_54': { min: 118, max: 158, default: 132 }, // 54日收益率: 表头6字, 数据8字符
+                'rate_55': { min: 118, max: 158, default: 132 }, // 55日收益率: 表头6字, 数据8字符
+                'rate_56': { min: 118, max: 158, default: 132 }, // 56日收益率: 表头6字, 数据8字符
+                'rate_57': { min: 118, max: 158, default: 132 }, // 57日收益率: 表头6字, 数据8字符
+                'rate_58': { min: 118, max: 158, default: 132 }, // 58日收益率: 表头6字, 数据8字符
+                'rate_59': { min: 118, max: 158, default: 132 }, // 59日收益率: 表头6字, 数据8字符
+                'rate_6': { min: 118, max: 158, default: 132 }, // 6日收益率: 表头5字, 数据8字符
+                'rate_60': { min: 118, max: 158, default: 132 }, // 60日收益率: 表头6字, 数据8字符
+                'rate_61': { min: 118, max: 158, default: 132 }, // 61日收益率: 表头6字, 数据8字符
+                'rate_62': { min: 118, max: 158, default: 132 }, // 62日收益率: 表头6字, 数据8字符
+                'rate_63': { min: 118, max: 158, default: 132 }, // 63日收益率: 表头6字, 数据8字符
+                'rate_64': { min: 118, max: 158, default: 132 }, // 64日收益率: 表头6字, 数据8字符
+                'rate_65': { min: 118, max: 158, default: 132 }, // 65日收益率: 表头6字, 数据8字符
+                'rate_66': { min: 118, max: 158, default: 132 }, // 66日收益率: 表头6字, 数据8字符
+                'rate_67': { min: 118, max: 158, default: 132 }, // 67日收益率: 表头6字, 数据8字符
+                'rate_68': { min: 118, max: 158, default: 132 }, // 68日收益率: 表头6字, 数据8字符
+                'rate_69': { min: 118, max: 158, default: 132 }, // 69日收益率: 表头6字, 数据8字符
+                'rate_7': { min: 118, max: 158, default: 132 }, // 7日收益率: 表头5字, 数据8字符
+                'rate_70': { min: 118, max: 158, default: 132 }, // 70日收益率: 表头6字, 数据8字符
+                'rate_71': { min: 118, max: 158, default: 132 }, // 71日收益率: 表头6字, 数据8字符
+                'rate_72': { min: 118, max: 158, default: 132 }, // 72日收益率: 表头6字, 数据8字符
+                'rate_73': { min: 118, max: 158, default: 132 }, // 73日收益率: 表头6字, 数据8字符
+                'rate_74': { min: 118, max: 158, default: 132 }, // 74日收益率: 表头6字, 数据8字符
+                'rate_75': { min: 118, max: 158, default: 132 }, // 75日收益率: 表头6字, 数据8字符
+                'rate_76': { min: 118, max: 158, default: 132 }, // 76日收益率: 表头6字, 数据8字符
+                'rate_77': { min: 118, max: 158, default: 132 }, // 77日收益率: 表头6字, 数据8字符
+                'rate_78': { min: 118, max: 158, default: 132 }, // 78日收益率: 表头6字, 数据8字符
+                'rate_79': { min: 118, max: 158, default: 132 }, // 79日收益率: 表头6字, 数据8字符
+                'rate_8': { min: 118, max: 158, default: 132 }, // 8日收益率: 表头5字, 数据8字符
+                'rate_80': { min: 118, max: 158, default: 132 }, // 80日收益率: 表头6字, 数据8字符
+                'rate_81': { min: 118, max: 158, default: 132 }, // 81日收益率: 表头6字, 数据8字符
+                'rate_82': { min: 118, max: 158, default: 132 }, // 82日收益率: 表头6字, 数据8字符
+                'rate_83': { min: 118, max: 158, default: 132 }, // 83日收益率: 表头6字, 数据8字符
+                'rate_84': { min: 118, max: 158, default: 132 }, // 84日收益率: 表头6字, 数据8字符
+                'rate_85': { min: 118, max: 158, default: 132 }, // 85日收益率: 表头6字, 数据8字符
+                'rate_86': { min: 118, max: 158, default: 132 }, // 86日收益率: 表头6字, 数据8字符
+                'rate_87': { min: 118, max: 158, default: 132 }, // 87日收益率: 表头6字, 数据8字符
+                'rate_88': { min: 118, max: 158, default: 132 }, // 88日收益率: 表头6字, 数据8字符
+                'rate_89': { min: 118, max: 158, default: 132 }, // 89日收益率: 表头6字, 数据8字符
+                'rate_9': { min: 118, max: 158, default: 132 }, // 9日收益率: 表头5字, 数据8字符
+                'rate_90': { min: 118, max: 158, default: 132 }, // 90日收益率: 表头6字, 数据8字符
+                'rate_91': { min: 118, max: 158, default: 132 }, // 91日收益率: 表头6字, 数据8字符
+                'rate_92': { min: 118, max: 158, default: 132 }, // 92日收益率: 表头6字, 数据8字符
+                'rate_93': { min: 118, max: 158, default: 132 }, // 93日收益率: 表头6字, 数据8字符
+                'rate_94': { min: 118, max: 158, default: 132 }, // 94日收益率: 表头6字, 数据8字符
+                'rate_95': { min: 118, max: 158, default: 132 }, // 95日收益率: 表头6字, 数据8字符
+                'rate_96': { min: 118, max: 158, default: 132 }, // 96日收益率: 表头6字, 数据8字符
+                'rate_97': { min: 118, max: 158, default: 132 }, // 97日收益率: 表头6字, 数据8字符
+                'rate_98': { min: 118, max: 158, default: 132 }, // 98日收益率: 表头6字, 数据8字符
+                'rate_99': { min: 118, max: 158, default: 132 }, // 99日收益率: 表头6字, 数据8字符
+
+                // 股票大宗交易 (cn_stock_blocktrade)
+                'average_price': { min: 118, max: 158, default: 132 }, // 成交均价: 表头4字, 数据8字符
+                'overflow_rate': { min: 118, max: 158, default: 132 }, // 折溢率: 表头3字, 数据8字符
+                'sum_turnover': { min: 118, max: 158, default: 132 }, // 成交总额: 表头4字, 数据8字符
+                'sum_volume': { min: 118, max: 158, default: 132 }, // 成交总量: 表头4字, 数据8字符
+                'trade_number': { min: 118, max: 158, default: 132 }, // 成交笔数: 表头4字, 数据8字符
+                'turnover_market_rate': { min: 118, max: 158, default: 132 }, // 成交占比流通市值: 表头8字, 数据8字符
+
+                // 股票分红配送 (cn_stock_bonus)
+                'basic_eps': { min: 118, max: 158, default: 132 }, // 每股收益: 表头4字, 数据8字符
+                'bonusaward_rate': { min: 118, max: 158, default: 132 }, // 现金分红-现金分红比例: 表头11字, 数据8字符
+                'bonusaward_yield': { min: 118, max: 158, default: 132 }, // 现金分红-股息率: 表头8字, 数据8字符
+                'bvps': { min: 118, max: 158, default: 132 }, // 每股净资产: 表头5字, 数据8字符
+                'convertible_rate': { min: 118, max: 158, default: 132 }, // 送转股份-送转比例: 表头9字, 数据8字符
+                'convertible_total_rate': { min: 118, max: 158, default: 132 }, // 送转股份-送转总比例: 表头10字, 数据8字符
+                'convertible_transfer_rate': { min: 118, max: 158, default: 132 }, // 送转股份-转股比例: 表头9字, 数据8字符
+                'ex_dividend_date': { min: 144, max: 192, default: 160 }, // 除权除息日: 表头5字, 数据10字符
+                'netprofit_yoy_ratio': { min: 118, max: 158, default: 132 }, // 净利润同比增长: 表头7字, 数据8字符
+                'per_capital_reserve': { min: 118, max: 158, default: 132 }, // 每股公积金: 表头5字, 数据8字符
+                'per_unassign_profit': { min: 118, max: 158, default: 132 }, // 每股未分配利润: 表头7字, 数据8字符
+                'plan_date': { min: 144, max: 192, default: 160 }, // 预案公告日: 表头5字, 数据10字符
+                'progress': { min: 70, max: 100, default: 80 }, // 方案进度: 表头4字
+                'record_date': { min: 144, max: 192, default: 160 }, // 股权登记日: 表头5字, 数据10字符
+                'report_date': { min: 144, max: 192, default: 160 }, // 最新公告日期: 表头6字, 数据10字符
+                'total_shares': { min: 169, max: 225, default: 188 }, // 总股本: 表头3字, 数据12字符
+
+                // 尾盘抢筹数据 (cn_stock_chip_race_end)
+                'bid_deal_amount': { min: 169, max: 225, default: 188 }, // 抢筹成交金额: 表头6字, 数据12字符
+                'bid_rate': { min: 118, max: 158, default: 132 }, // 抢筹幅度: 表头4字, 数据8字符
+                'bid_ratio': { min: 118, max: 158, default: 132 }, // 抢筹占比: 表头4字, 数据8字符
+                'bid_trust_amount': { min: 169, max: 225, default: 188 }, // 抢筹委托金额: 表头6字, 数据12字符
+                'limitup_board': { min: 144, max: 192, default: 160 }, // 板: 表头1字, 数据10字符
+                'limitup_day': { min: 144, max: 192, default: 160 }, // 天: 表头1字, 数据10字符
+
+                // 早盘抢筹数据 (cn_stock_chip_race_open)
+
+                // 股票外键 (cn_stock_foreign_key)
+
+                // 股票资金流向 (cn_stock_fund_flow)
+                'change_rate_10': { min: 118, max: 158, default: 132 }, // 10日涨跌幅: 表头6字, 数据8字符
+                'change_rate_3': { min: 118, max: 158, default: 132 }, // 3日涨跌幅: 表头5字, 数据8字符
+                'change_rate_5': { min: 118, max: 158, default: 132 }, // 5日涨跌幅: 表头5字, 数据8字符
+                'fund_amount': { min: 169, max: 225, default: 188 }, // 今日主力净流入-净额: 表头10字, 数据12字符
+                'fund_amount_10': { min: 169, max: 225, default: 188 }, // 10日主力净流入-净额: 表头11字, 数据12字符
+                'fund_amount_3': { min: 169, max: 225, default: 188 }, // 3日主力净流入-净额: 表头10字, 数据12字符
+                'fund_amount_5': { min: 169, max: 225, default: 188 }, // 5日主力净流入-净额: 表头10字, 数据12字符
+                'fund_amount_large': { min: 169, max: 225, default: 188 }, // 今日大单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_large_10': { min: 169, max: 225, default: 188 }, // 10日大单净流入-净额: 表头11字, 数据12字符
+                'fund_amount_large_3': { min: 169, max: 225, default: 188 }, // 3日大单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_large_5': { min: 169, max: 225, default: 188 }, // 5日大单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_medium': { min: 169, max: 225, default: 188 }, // 今日中单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_medium_10': { min: 169, max: 225, default: 188 }, // 10日中单净流入-净额: 表头11字, 数据12字符
+                'fund_amount_medium_3': { min: 169, max: 225, default: 188 }, // 3日中单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_medium_5': { min: 169, max: 225, default: 188 }, // 5日中单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_small': { min: 169, max: 225, default: 188 }, // 今日小单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_small_10': { min: 169, max: 225, default: 188 }, // 10日小单净流入-净额: 表头11字, 数据12字符
+                'fund_amount_small_3': { min: 169, max: 225, default: 188 }, // 3日小单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_small_5': { min: 169, max: 225, default: 188 }, // 5日小单净流入-净额: 表头10字, 数据12字符
+                'fund_amount_super': { min: 169, max: 225, default: 188 }, // 今日超大单净流入-净额: 表头11字, 数据12字符
+                'fund_amount_super_10': { min: 169, max: 225, default: 188 }, // 10日超大单净流入-净额: 表头12字, 数据12字符
+                'fund_amount_super_3': { min: 169, max: 225, default: 188 }, // 3日超大单净流入-净额: 表头11字, 数据12字符
+                'fund_amount_super_5': { min: 169, max: 225, default: 188 }, // 5日超大单净流入-净额: 表头11字, 数据12字符
+                'fund_rate': { min: 118, max: 158, default: 132 }, // 今日主力净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_10': { min: 118, max: 158, default: 132 }, // 10日主力净流入-净占比: 表头12字, 数据8字符
+                'fund_rate_3': { min: 118, max: 158, default: 132 }, // 3日主力净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_5': { min: 118, max: 158, default: 132 }, // 5日主力净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_large': { min: 118, max: 158, default: 132 }, // 今日大单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_large_10': { min: 118, max: 158, default: 132 }, // 10日大单净流入-净占比: 表头12字, 数据8字符
+                'fund_rate_large_3': { min: 118, max: 158, default: 132 }, // 3日大单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_large_5': { min: 118, max: 158, default: 132 }, // 5日大单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_medium': { min: 118, max: 158, default: 132 }, // 今日中单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_medium_10': { min: 118, max: 158, default: 132 }, // 10日中单净流入-净占比: 表头12字, 数据8字符
+                'fund_rate_medium_3': { min: 118, max: 158, default: 132 }, // 3日中单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_medium_5': { min: 118, max: 158, default: 132 }, // 5日中单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_small': { min: 118, max: 158, default: 132 }, // 今日小单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_small_10': { min: 118, max: 158, default: 132 }, // 10日小单净流入-净占比: 表头12字, 数据8字符
+                'fund_rate_small_3': { min: 118, max: 158, default: 132 }, // 3日小单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_small_5': { min: 118, max: 158, default: 132 }, // 5日小单净流入-净占比: 表头11字, 数据8字符
+                'fund_rate_super': { min: 118, max: 158, default: 132 }, // 今日超大单净流入-净占比: 表头12字, 数据8字符
+                'fund_rate_super_10': { min: 118, max: 158, default: 132 }, // 10日超大单净流入-净占比: 表头13字, 数据8字符
+                'fund_rate_super_3': { min: 118, max: 158, default: 132 }, // 3日超大单净流入-净占比: 表头12字, 数据8字符
+                'fund_rate_super_5': { min: 118, max: 158, default: 132 }, // 5日超大单净流入-净占比: 表头12字, 数据8字符
+
+                // 概念资金流向 (cn_stock_fund_flow_concept)
+                'stock_name': { min: 93, max: 124, default: 104 }, // 今日主力净流入最大股: 表头10字
+                'stock_name_10': { min: 93, max: 124, default: 104 }, // 10日主力净流入最大股: 表头11字
+                'stock_name_5': { min: 93, max: 124, default: 104 }, // 5日主力净流入最大股: 表头10字
+
+                // 行业资金流向 (cn_stock_fund_flow_industry)
+
+                // 股票指标数据 (cn_stock_indicators)
+                'adx': { min: 118, max: 158, default: 132 }, // adx: 表头3字, 数据8字符
+                'adxr': { min: 118, max: 158, default: 132 }, // adxr: 表头4字, 数据8字符
+                'ar': { min: 118, max: 158, default: 132 }, // ar: 表头2字, 数据8字符
+                'atr': { min: 118, max: 158, default: 132 }, // atr: 表头3字, 数据8字符
+                'bias': { min: 118, max: 158, default: 132 }, // bias: 表头4字, 数据8字符
+                'boll': { min: 118, max: 158, default: 132 }, // boll: 表头4字, 数据8字符
+                'boll_lb': { min: 118, max: 158, default: 132 }, // boll下轨: 表头6字, 数据8字符
+                'boll_ub': { min: 118, max: 158, default: 132 }, // boll上轨: 表头6字, 数据8字符
+                'br': { min: 118, max: 158, default: 132 }, // br: 表头2字, 数据8字符
+                'cci': { min: 118, max: 158, default: 132 }, // cci: 表头3字, 数据8字符
+                'cci_84': { min: 118, max: 158, default: 132 }, // cci_84: 表头6字, 数据8字符
+                'close': { min: 118, max: 158, default: 132 }, // 价格: 表头2字, 数据8字符
+                'cr': { min: 118, max: 158, default: 132 }, // cr: 表头2字, 数据8字符
+                'cr-ma1': { min: 118, max: 158, default: 132 }, // cr-ma1: 表头6字, 数据8字符
+                'cr-ma2': { min: 118, max: 158, default: 132 }, // cr-ma2: 表头6字, 数据8字符
+                'cr-ma3': { min: 118, max: 158, default: 132 }, // cr-ma3: 表头6字, 数据8字符
+                'dma': { min: 118, max: 158, default: 132 }, // dma: 表头3字, 数据8字符
+                'dma_10_sma': { min: 118, max: 158, default: 132 }, // ama: 表头3字, 数据8字符
+                'dpo': { min: 118, max: 158, default: 132 }, // dpo: 表头3字, 数据8字符
+                'dx': { min: 118, max: 158, default: 132 }, // dx: 表头2字, 数据8字符
+                'emv': { min: 118, max: 158, default: 132 }, // emv: 表头3字, 数据8字符
+                'emva': { min: 118, max: 158, default: 132 }, // emva: 表头4字, 数据8字符
+                'ene': { min: 118, max: 158, default: 132 }, // ene: 表头3字, 数据8字符
+                'ene_le': { min: 118, max: 158, default: 132 }, // ene下轨: 表头5字, 数据8字符
+                'ene_ue': { min: 118, max: 158, default: 132 }, // ene上轨: 表头5字, 数据8字符
+                'fi': { min: 118, max: 158, default: 132 }, // fi: 表头2字, 数据8字符
+                'force_13': { min: 118, max: 158, default: 132 }, // force_13: 表头8字, 数据8字符
+                'force_2': { min: 118, max: 158, default: 132 }, // force_2: 表头7字, 数据8字符
+                'kdjd': { min: 118, max: 158, default: 132 }, // kdjd: 表头4字, 数据8字符
+                'kdjj': { min: 118, max: 158, default: 132 }, // kdjj: 表头4字, 数据8字符
+                'kdjk': { min: 118, max: 158, default: 132 }, // kdjk: 表头4字, 数据8字符
+                'macd': { min: 118, max: 158, default: 132 }, // dif: 表头3字, 数据8字符
+                'macdh': { min: 118, max: 158, default: 132 }, // histogram: 表头9字, 数据8字符
+                'macds': { min: 118, max: 158, default: 132 }, // macd: 表头4字, 数据8字符
+                'madpo': { min: 118, max: 158, default: 132 }, // madpo: 表头5字, 数据8字符
+                'mdi': { min: 118, max: 158, default: 132 }, // mdi: 表头3字, 数据8字符
+                'mfi': { min: 118, max: 158, default: 132 }, // mfi: 表头3字, 数据8字符
+                'mfisma': { min: 118, max: 158, default: 132 }, // mfisma: 表头6字, 数据8字符
+                'mvwma': { min: 118, max: 158, default: 132 }, // mvwma: 表头5字, 数据8字符
+                'obv': { min: 118, max: 158, default: 132 }, // obv: 表头3字, 数据8字符
+                'pdi': { min: 118, max: 158, default: 132 }, // pdi: 表头3字, 数据8字符
+                'ppo': { min: 118, max: 158, default: 132 }, // ppo: 表头3字, 数据8字符
+                'ppoh': { min: 118, max: 158, default: 132 }, // ppoh: 表头4字, 数据8字符
+                'ppos': { min: 118, max: 158, default: 132 }, // ppos: 表头4字, 数据8字符
+                'psy': { min: 118, max: 158, default: 132 }, // psy: 表头3字, 数据8字符
+                'psyma': { min: 118, max: 158, default: 132 }, // psyma: 表头5字, 数据8字符
+                'roc': { min: 118, max: 158, default: 132 }, // roc: 表头3字, 数据8字符
+                'rocema': { min: 118, max: 158, default: 132 }, // rocema: 表头6字, 数据8字符
+                'rocma': { min: 118, max: 158, default: 132 }, // rocma: 表头5字, 数据8字符
+                'rsi': { min: 118, max: 158, default: 132 }, // rsi: 表头3字, 数据8字符
+                'rsi_12': { min: 118, max: 158, default: 132 }, // rsi_12: 表头6字, 数据8字符
+                'rsi_24': { min: 118, max: 158, default: 132 }, // rsi_24: 表头6字, 数据8字符
+                'rsi_6': { min: 118, max: 158, default: 132 }, // rsi_6: 表头5字, 数据8字符
+                'rvi': { min: 118, max: 158, default: 132 }, // rvi: 表头3字, 数据8字符
+                'rvis': { min: 118, max: 158, default: 132 }, // rvis: 表头4字, 数据8字符
+                'sar': { min: 118, max: 158, default: 132 }, // sar: 表头3字, 数据8字符
+                'stochrsi_d': { min: 118, max: 158, default: 132 }, // stochrsi_d: 表头10字, 数据8字符
+                'stochrsi_k': { min: 118, max: 158, default: 132 }, // stochrsi_k: 表头10字, 数据8字符
+                'supertrend': { min: 118, max: 158, default: 132 }, // supertrend: 表头10字, 数据8字符
+                'supertrend_lb': { min: 118, max: 158, default: 132 }, // supertrend_lb: 表头13字, 数据8字符
+                'supertrend_ub': { min: 118, max: 158, default: 132 }, // supertrend_ub: 表头13字, 数据8字符
+                'tema': { min: 118, max: 158, default: 132 }, // tema: 表头4字, 数据8字符
+                'tr': { min: 118, max: 158, default: 132 }, // tr: 表头2字, 数据8字符
+                'trix': { min: 118, max: 158, default: 132 }, // trix: 表头4字, 数据8字符
+                'trix_20_sma': { min: 118, max: 158, default: 132 }, // trma: 表头4字, 数据8字符
+                'vhf': { min: 118, max: 158, default: 132 }, // vhf: 表头3字, 数据8字符
+                'vr': { min: 118, max: 158, default: 132 }, // vr: 表头2字, 数据8字符
+                'vr_6_sma': { min: 118, max: 158, default: 132 }, // mavr: 表头4字, 数据8字符
+                'vwma': { min: 118, max: 158, default: 132 }, // vwma: 表头4字, 数据8字符
+                'wr_10': { min: 118, max: 158, default: 132 }, // wr_10: 表头5字, 数据8字符
+                'wr_14': { min: 118, max: 158, default: 132 }, // wr_14: 表头5字, 数据8字符
+                'wr_6': { min: 118, max: 158, default: 132 }, // wr_6: 表头4字, 数据8字符
+                'wt1': { min: 118, max: 158, default: 132 }, // wt1: 表头3字, 数据8字符
+                'wt2': { min: 118, max: 158, default: 132 }, // wt2: 表头3字, 数据8字符
+
+                // 股票指标买入 (cn_stock_indicators_buy)
+
+                // 股票指标卖出 (cn_stock_indicators_sell)
+
+                // 股票龙虎榜 (cn_stock_lhb)
+                'interpret': { min: 70, max: 100, default: 80 }, // 解读: 表头2字
+                'lhb_amount': { min: 118, max: 158, default: 132 }, // 龙虎榜成交额: 表头6字, 数据8字符
+                'market_amount': { min: 118, max: 158, default: 132 }, // 市场总成交额: 表头6字, 数据8字符
+                'net_amount_buy': { min: 118, max: 158, default: 132 }, // 龙虎榜净买额: 表头6字, 数据8字符
+                'net_amount_rate': { min: 118, max: 158, default: 132 }, // 净买额占总成交比: 表头8字, 数据8字符
+                'ranking_after_1': { min: 118, max: 158, default: 132 }, // 上榜后1日: 表头5字, 数据8字符
+                'ranking_after_10': { min: 118, max: 158, default: 132 }, // 上榜后10日: 表头6字, 数据8字符
+                'ranking_after_2': { min: 118, max: 158, default: 132 }, // 上榜后2日: 表头5字, 数据8字符
+                'ranking_after_5': { min: 118, max: 158, default: 132 }, // 上榜后5日: 表头5字, 数据8字符
+                'ranking_date': { min: 144, max: 192, default: 160 }, // 上榜日: 表头3字, 数据10字符
+                'reason': { min: 70, max: 100, default: 80 }, // 上榜原因: 表头4字
+                'sum_buy': { min: 118, max: 158, default: 132 }, // 龙虎榜买入额: 表头6字, 数据8字符
+                'sum_rate': { min: 118, max: 158, default: 132 }, // 成交额占总成交比: 表头8字, 数据8字符
+                'sum_sell': { min: 118, max: 158, default: 132 }, // 龙虎榜卖出额: 表头6字, 数据8字符
+
+                // 涨停原因揭密 (cn_stock_limitup_reason)
+                'dde': { min: 169, max: 225, default: 188 }, // DDE: 表头3字, 数据12字符
+                'title': { min: 70, max: 100, default: 80 }, // 原因: 表头2字
+
+                // 股票K线形态 (cn_stock_pattern)
+                'abandoned_baby': { min: 144, max: 192, default: 160 }, // 弃婴: 表头2字, 数据10字符
+                'advance_block': { min: 144, max: 192, default: 160 }, // 大敌当前: 表头4字, 数据10字符
+                'belt_hold': { min: 144, max: 192, default: 160 }, // 捉腰带线: 表头4字, 数据10字符
+                'breakaway': { min: 144, max: 192, default: 160 }, // 脱离: 表头2字, 数据10字符
+                'closing_marubozu': { min: 144, max: 192, default: 160 }, // 收盘缺影线: 表头5字, 数据10字符
+                'concealing_baby_swallow': { min: 144, max: 192, default: 160 }, // 藏婴吞没: 表头4字, 数据10字符
+                'counterattack': { min: 144, max: 192, default: 160 }, // 反击线: 表头3字, 数据10字符
+                'dark_cloud_cover': { min: 144, max: 192, default: 160 }, // 乌云压顶: 表头4字, 数据10字符
+                'doji': { min: 144, max: 192, default: 160 }, // 十字: 表头2字, 数据10字符
+                'doji_Star': { min: 144, max: 192, default: 160 }, // 十字星: 表头3字, 数据10字符
+                'dragonfly_doji': { min: 144, max: 192, default: 160 }, // 蜻蜓十字/T形十字: 表头9字, 数据10字符
+                'engulfing_pattern': { min: 144, max: 192, default: 160 }, // 吞噬模式: 表头4字, 数据10字符
+                'evening_doji_star': { min: 144, max: 192, default: 160 }, // 十字暮星: 表头4字, 数据10字符
+                'evening_star': { min: 144, max: 192, default: 160 }, // 暮星: 表头2字, 数据10字符
+                'gravestone_doji': { min: 144, max: 192, default: 160 }, // 墓碑十字/倒T十字: 表头9字, 数据10字符
+                'hammer': { min: 144, max: 192, default: 160 }, // 锤头: 表头2字, 数据10字符
+                'hanging_man': { min: 144, max: 192, default: 160 }, // 上吊线: 表头3字, 数据10字符
+                'harami_cross_pattern': { min: 144, max: 192, default: 160 }, // 十字孕线: 表头4字, 数据10字符
+                'harami_pattern': { min: 144, max: 192, default: 160 }, // 母子线: 表头3字, 数据10字符
+                'high_wave_candle': { min: 144, max: 192, default: 160 }, // 风高浪大线: 表头5字, 数据10字符
+                'hikkake_pattern': { min: 144, max: 192, default: 160 }, // 陷阱: 表头2字, 数据10字符
+                'homing_pigeon': { min: 144, max: 192, default: 160 }, // 家鸽: 表头2字, 数据10字符
+                'identical_three_crows': { min: 144, max: 192, default: 160 }, // 三胞胎乌鸦: 表头5字, 数据10字符
+                'in_neck_pattern': { min: 144, max: 192, default: 160 }, // 颈内线: 表头3字, 数据10字符
+                'inverted_hammer': { min: 144, max: 192, default: 160 }, // 倒锤头: 表头3字, 数据10字符
+                'kicking': { min: 144, max: 192, default: 160 }, // 反冲形态: 表头4字, 数据10字符
+                'kicking_bull_bear': { min: 144, max: 192, default: 160 }, // 由较长缺影线决定的反冲形态: 表头13字, 数据10字符
+                'ladder_bottom': { min: 144, max: 192, default: 160 }, // 梯底: 表头2字, 数据10字符
+                'long_legged_doji': { min: 144, max: 192, default: 160 }, // 长脚十字: 表头4字, 数据10字符
+                'long_line_candle': { min: 144, max: 192, default: 160 }, // 长蜡烛: 表头3字, 数据10字符
+                'marubozu': { min: 144, max: 192, default: 160 }, // 光头光脚/缺影线: 表头8字, 数据10字符
+                'mat_hold': { min: 144, max: 192, default: 160 }, // 铺垫: 表头2字, 数据10字符
+                'matching_low': { min: 144, max: 192, default: 160 }, // 相同低价: 表头4字, 数据10字符
+                'modified_hikkake_pattern': { min: 144, max: 192, default: 160 }, // 修正陷阱: 表头4字, 数据10字符
+                'morning_doji_star': { min: 144, max: 192, default: 160 }, // 十字晨星: 表头4字, 数据10字符
+                'morning_star': { min: 144, max: 192, default: 160 }, // 晨星: 表头2字, 数据10字符
+                'on_neck_pattern': { min: 144, max: 192, default: 160 }, // 颈上线: 表头3字, 数据10字符
+                'piercing_pattern': { min: 144, max: 192, default: 160 }, // 刺透形态: 表头4字, 数据10字符
+                'rickshaw_man': { min: 144, max: 192, default: 160 }, // 黄包车夫: 表头4字, 数据10字符
+                'rising_falling_three': { min: 144, max: 192, default: 160 }, // 上升/下降三法: 表头7字, 数据10字符
+                'separating_lines': { min: 144, max: 192, default: 160 }, // 分离线: 表头3字, 数据10字符
+                'shooting_star': { min: 144, max: 192, default: 160 }, // 射击之星: 表头4字, 数据10字符
+                'short_line_candle': { min: 144, max: 192, default: 160 }, // 短蜡烛: 表头3字, 数据10字符
+                'spinning_top': { min: 144, max: 192, default: 160 }, // 纺锤: 表头2字, 数据10字符
+                'stalled_pattern': { min: 144, max: 192, default: 160 }, // 停顿形态: 表头4字, 数据10字符
+                'stick_sandwich': { min: 144, max: 192, default: 160 }, // 条形三明治: 表头5字, 数据10字符
+                'takuri': { min: 144, max: 192, default: 160 }, // 探水竿: 表头3字, 数据10字符
+                'tasuki_gap': { min: 144, max: 192, default: 160 }, // 跳空并列阴阳线: 表头7字, 数据10字符
+                'three_black_crows': { min: 144, max: 192, default: 160 }, // 三只乌鸦: 表头4字, 数据10字符
+                'three_inside_up_down': { min: 144, max: 192, default: 160 }, // 三内部上涨和下跌: 表头8字, 数据10字符
+                'three_line_strike': { min: 144, max: 192, default: 160 }, // 三线打击: 表头4字, 数据10字符
+                'three_outside_up_down': { min: 144, max: 192, default: 160 }, // 三外部上涨和下跌: 表头8字, 数据10字符
+                'three_stars_in_the_south': { min: 144, max: 192, default: 160 }, // 南方三星: 表头4字, 数据10字符
+                'three_white_soldiers': { min: 144, max: 192, default: 160 }, // 三个白兵: 表头4字, 数据10字符
+                'thrusting_pattern': { min: 144, max: 192, default: 160 }, // 插入: 表头2字, 数据10字符
+                'tow_crows': { min: 144, max: 192, default: 160 }, // 两只乌鸦: 表头4字, 数据10字符
+                'tristar_pattern': { min: 144, max: 192, default: 160 }, // 三星: 表头2字, 数据10字符
+                'unique_3_river': { min: 144, max: 192, default: 160 }, // 奇特三河床: 表头5字, 数据10字符
+                'up_down_gap': { min: 144, max: 192, default: 160 }, // 向上/下跳空并列阳线: 表头10字, 数据10字符
+                'upside_downside_gap': { min: 144, max: 192, default: 160 }, // 上升/下降跳空三法: 表头9字, 数据10字符
+                'upside_gap_two_crows': { min: 144, max: 192, default: 160 }, // 向上跳空的两只乌鸦: 表头9字, 数据10字符
+
+                // 综合选股 (cn_stock_selection)
+                'allcorp_bx_num': { min: 144, max: 192, default: 160 }, // 保险公司持股家数: 表头8字, 数据10字符
+                'allcorp_bx_ratio': { min: 118, max: 158, default: 132 }, // 保险公司持股比例: 表头8字, 数据8字符
+                'allcorp_fund_num': { min: 144, max: 192, default: 160 }, // 基金持股家数: 表头6字, 数据10字符
+                'allcorp_fund_ratio': { min: 118, max: 158, default: 132 }, // 基金持股比例: 表头6字, 数据8字符
+                'allcorp_num': { min: 144, max: 192, default: 160 }, // 机构持股家数合计: 表头8字, 数据10字符
+                'allcorp_qfii_num': { min: 144, max: 192, default: 160 }, // QFII持股家数: 表头8字, 数据10字符
+                'allcorp_qfii_ratio': { min: 118, max: 158, default: 132 }, // QFII持股比例: 表头8字, 数据8字符
+                'allcorp_qs_num': { min: 144, max: 192, default: 160 }, // 券商持股家数: 表头6字, 数据10字符
+                'allcorp_qs_ratio': { min: 118, max: 158, default: 132 }, // 券商持股比例: 表头6字, 数据8字符
+                'allcorp_ratio': { min: 118, max: 158, default: 132 }, // 机构持股比例合计: 表头8字, 数据8字符
+                'allcorp_sb_num': { min: 144, max: 192, default: 160 }, // 社保持股家数: 表头6字, 数据10字符
+                'allcorp_sb_ratio': { min: 118, max: 158, default: 132 }, // 社保持股比例: 表头6字, 数据8字符
+                'allcorp_xt_num': { min: 144, max: 192, default: 160 }, // 信托公司持股家数: 表头8字, 数据10字符
+                'allcorp_xt_ratio': { min: 118, max: 158, default: 132 }, // 信托公司持股比例: 表头8字, 数据8字符
+                'amplitude': { min: 118, max: 158, default: 132 }, // 振幅: 表头2字, 数据8字符
+                'area': { min: 70, max: 100, default: 80 }, // 地区: 表头2字
+                'avg_hold_num': { min: 118, max: 158, default: 132 }, // 户均持股数量: 表头6字, 数据8字符
+                'basiceps_yoy_ratio': { min: 118, max: 158, default: 132 }, // 每股收益同比增长率: 表头9字, 数据8字符
+                'bearish_engulfing': { min: 144, max: 192, default: 160 }, // 穿头破脚: 表头4字, 数据10字符
+                'bigfans_ratio': { min: 118, max: 158, default: 132 }, // 铁杆粉丝占比: 表头6字, 数据8字符
+                'black_cloud_tops': { min: 144, max: 192, default: 160 }, // 乌云盖顶: 表头4字, 数据10字符
+                'break_through': { min: 144, max: 192, default: 160 }, // 放量突破: 表头4字, 数据10字符
+                'breakup_ma_10days': { min: 144, max: 192, default: 160 }, // 向上突破均线10日: 表头9字, 数据10字符
+                'breakup_ma_20days': { min: 144, max: 192, default: 160 }, // 向上突破均线20日: 表头9字, 数据10字符
+                'breakup_ma_30days': { min: 144, max: 192, default: 160 }, // 向上突破均线30日: 表头9字, 数据10字符
+                'breakup_ma_5days': { min: 144, max: 192, default: 160 }, // 向上突破均线5日: 表头8字, 数据10字符
+                'breakup_ma_60days': { min: 144, max: 192, default: 160 }, // 向上突破均线60日: 表头9字, 数据10字符
+                'browse_rank': { min: 144, max: 192, default: 160 }, // 今日浏览排名: 表头6字, 数据10字符
+                'changerate_10days': { min: 118, max: 158, default: 132 }, // 10日涨跌幅: 表头6字, 数据8字符
+                'changerate_3days': { min: 118, max: 158, default: 132 }, // 3日涨跌幅: 表头5字, 数据8字符
+                'changerate_5days': { min: 118, max: 158, default: 132 }, // 5日涨跌幅: 表头5字, 数据8字符
+                'changerate_ty': { min: 118, max: 158, default: 132 }, // 今年以来涨跌幅: 表头7字, 数据8字符
+                'concept': { min: 70, max: 100, default: 80 }, // 概念: 表头2字
+                'concern_rank_7days': { min: 144, max: 192, default: 160 }, // 7日关注排名: 表头6字, 数据10字符
+                'current_ratio': { min: 118, max: 158, default: 132 }, // 流动比率: 表头4字, 数据8字符
+                'ddx': { min: 118, max: 158, default: 132 }, // 当日DDX: 表头5字, 数据8字符
+                'ddx_3d': { min: 118, max: 158, default: 132 }, // 3日DDX: 表头5字, 数据8字符
+                'ddx_5d': { min: 118, max: 158, default: 132 }, // 5日DDX: 表头5字, 数据8字符
+                'ddx_red_10d': { min: 144, max: 192, default: 160 }, // 10日内DDX飘红天数: 表头11字, 数据10字符
+                'debt_asset_ratio': { min: 118, max: 158, default: 132 }, // 资产负债率: 表头5字, 数据8字符
+                'deduct_netprofit': { min: 169, max: 225, default: 188 }, // 扣非净利润: 表头5字, 数据12字符
+                'deduct_netprofit_growthrate': { min: 118, max: 158, default: 132 }, // 扣非净利润增长率: 表头8字, 数据8字符
+                'directional_seo_1m': { min: 144, max: 192, default: 160 }, // 定向增发近1个月: 表头8字, 数据10字符
+                'directional_seo_1y': { min: 144, max: 192, default: 160 }, // 定向增发近1年: 表头7字, 数据10字符
+                'directional_seo_3m': { min: 144, max: 192, default: 160 }, // 定向增发近3个月: 表头8字, 数据10字符
+                'directional_seo_6m': { min: 144, max: 192, default: 160 }, // 定向增发近6个月: 表头8字, 数据10字符
+                'down_7days': { min: 144, max: 192, default: 160 }, // 七仙女下凡(七连阴): 表头10字, 数据10字符
+                'down_days': { min: 144, max: 192, default: 160 }, // 人气排名连跌: 表头6字, 数据10字符
+                'down_narrow_volume': { min: 144, max: 192, default: 160 }, // 下跌无量: 表头4字, 数据10字符
+                'downnday': { min: 144, max: 192, default: 160 }, // 连跌天数: 表头4字, 数据10字符
+                'dtsyl': { min: 118, max: 158, default: 132 }, // 动态市盈率: 表头5字, 数据8字符
+                'enterprise_value_multiple': { min: 118, max: 158, default: 132 }, // 企业价值倍数: 表头6字, 数据8字符
+                'equity_multiplier': { min: 118, max: 158, default: 132 }, // 权益乘数: 表头4字, 数据8字符
+                'equity_pledge_1m': { min: 144, max: 192, default: 160 }, // 股权质押近1个月: 表头8字, 数据10字符
+                'equity_pledge_1y': { min: 144, max: 192, default: 160 }, // 股权质押近1年: 表头7字, 数据10字符
+                'equity_pledge_3m': { min: 144, max: 192, default: 160 }, // 股权质押近3个月: 表头8字, 数据10字符
+                'equity_pledge_6m': { min: 144, max: 192, default: 160 }, // 股权质押近6个月: 表头8字, 数据10字符
+                'equity_ratio': { min: 118, max: 158, default: 132 }, // 产权比率: 表头4字, 数据8字符
+                'executive_change_3m': { min: 118, max: 158, default: 132 }, // 近3月高管增减比例: 表头9字, 数据8字符
+                'first_dawn': { min: 144, max: 192, default: 160 }, // 曙光初现: 表头4字, 数据10字符
+                'free_hold_ratio': { min: 118, max: 158, default: 132 }, // 十大流通股东比例合计: 表头10字, 数据8字符
+                'free_shares': { min: 169, max: 225, default: 188 }, // 流通股本: 表头4字, 数据12字符
+                'goodwill_assets_ratro': { min: 118, max: 158, default: 132 }, // 商誉占净资产比例: 表头8字, 数据8字符
+                'goodwill_scale': { min: 169, max: 225, default: 188 }, // 商誉规模: 表头4字, 数据12字符
+                'heaven_rule': { min: 144, max: 192, default: 160 }, // 天量法则: 表头4字, 数据10字符
+                'high_funds_outflow': { min: 144, max: 192, default: 160 }, // 高位资金净流出: 表头7字, 数据10字符
+                'high_recent_10days': { min: 144, max: 192, default: 160 }, // 近期创历史新高近10日: 表头11字, 数据10字符
+                'high_recent_20days': { min: 144, max: 192, default: 160 }, // 近期创历史新高近20日: 表头11字, 数据10字符
+                'high_recent_30days': { min: 144, max: 192, default: 160 }, // 近期创历史新高近30日: 表头11字, 数据10字符
+                'high_recent_3days': { min: 144, max: 192, default: 160 }, // 近期创历史新高近3日: 表头10字, 数据10字符
+                'high_recent_5days': { min: 144, max: 192, default: 160 }, // 近期创历史新高近5日: 表头10字, 数据10字符
+                'hold_amount': { min: 118, max: 158, default: 132 }, // 户均持股金额: 表头6字, 数据8字符
+                'hold_ratio': { min: 118, max: 158, default: 132 }, // 沪深股通持股比例: 表头8字, 数据8字符
+                'hold_ratio_count': { min: 118, max: 158, default: 132 }, // 十大股东持股比例合计: 表头10字, 数据8字符
+                'holder_change_3m': { min: 118, max: 158, default: 132 }, // 近3月股东增减比例: 表头9字, 数据8字符
+                'holder_newest': { min: 169, max: 225, default: 188 }, // 最新股东户数: 表头6字, 数据12字符
+                'holder_ratio': { min: 118, max: 158, default: 132 }, // 股东户数增长率: 表头7字, 数据8字符
+                'holdnum_growthrate_3q': { min: 118, max: 158, default: 132 }, // 户均持股数季度增长率: 表头10字, 数据8字符
+                'holdnum_growthrate_hy': { min: 118, max: 158, default: 132 }, // 户均持股数半年增长率: 表头10字, 数据8字符
+                'income_growthrate_3y': { min: 118, max: 158, default: 132 }, // 营收3年复合增长率: 表头9字, 数据8字符
+                'industry': { min: 70, max: 100, default: 80 }, // 行业: 表头2字
+                'is_bps_break': { min: 144, max: 192, default: 160 }, // 破净股票: 表头4字, 数据10字符
+                'is_cy50': { min: 81, max: 108, default: 90 }, // 创业板50: 表头5字
+                'is_hs300': { min: 70, max: 100, default: 80 }, // 沪300: 表头4字
+                'is_issue_break': { min: 144, max: 192, default: 160 }, // 破发股票: 表头4字, 数据10字符
+                'is_sz50': { min: 70, max: 100, default: 80 }, // 上证50: 表头4字
+                'is_zz1000': { min: 93, max: 124, default: 104 }, // 中证1000: 表头6字
+                'is_zz500': { min: 81, max: 108, default: 90 }, // 中证500: 表头5字
+                'jroa': { min: 118, max: 158, default: 132 }, // 总资产净利率ROA: 表头9字, 数据8字符
+                'kdj_golden_fork': { min: 144, max: 192, default: 160 }, // KDJ金叉日线: 表头7字, 数据10字符
+                'kdj_golden_forky': { min: 144, max: 192, default: 160 }, // KDJ金叉月线: 表头7字, 数据10字符
+                'kdj_golden_forkz': { min: 144, max: 192, default: 160 }, // KDJ金叉周线: 表头7字, 数据10字符
+                'limited_lift_1y': { min: 144, max: 192, default: 160 }, // 限售解禁近1年: 表头7字, 数据10字符
+                'limited_lift_6m': { min: 144, max: 192, default: 160 }, // 限售解禁近半年: 表头7字, 数据10字符
+                'limited_lift_f1y': { min: 144, max: 192, default: 160 }, // 限售解禁未来1年: 表头8字, 数据10字符
+                'limited_lift_f6m': { min: 144, max: 192, default: 160 }, // 限售解禁未来半年: 表头8字, 数据10字符
+                'listing_date': { min: 144, max: 192, default: 160 }, // 上市时间: 表头4字, 数据10字符
+                'listing_volatility_year': { min: 118, max: 158, default: 132 }, // 上市以来年化波动率: 表头9字, 数据8字符
+                'listing_yield_year': { min: 118, max: 158, default: 132 }, // 上市以来年化收益率: 表头9字, 数据8字符
+                'long_avg_array': { min: 144, max: 192, default: 160 }, // 均线多头排列: 表头6字, 数据10字符
+                'low_funds_inflow': { min: 144, max: 192, default: 160 }, // 低位资金净流入: 表头7字, 数据10字符
+                'low_recent_10days': { min: 144, max: 192, default: 160 }, // 近期创历史新低近10日: 表头11字, 数据10字符
+                'low_recent_20days': { min: 144, max: 192, default: 160 }, // 近期创历史新低近20日: 表头11字, 数据10字符
+                'low_recent_30days': { min: 144, max: 192, default: 160 }, // 近期创历史新低近30日: 表头11字, 数据10字符
+                'low_recent_3days': { min: 144, max: 192, default: 160 }, // 近期创历史新低近3日: 表头10字, 数据10字符
+                'low_recent_5days': { min: 144, max: 192, default: 160 }, // 近期创历史新低近5日: 表头10字, 数据10字符
+                'macd_golden_fork': { min: 144, max: 192, default: 160 }, // MACD金叉日线: 表头8字, 数据10字符
+                'macd_golden_forky': { min: 144, max: 192, default: 160 }, // MACD金叉月线: 表头8字, 数据10字符
+                'macd_golden_forkz': { min: 144, max: 192, default: 160 }, // MACD金叉周线: 表头8字, 数据10字符
+                'mutual_netbuy_amt': { min: 169, max: 225, default: 188 }, // 沪深股通净买入金额: 表头9字, 数据12字符
+                'narrow_finish': { min: 144, max: 192, default: 160 }, // 窄幅整理: 表头4字, 数据10字符
+                'net_inflow': { min: 118, max: 158, default: 132 }, // 当日净流入额: 表头6字, 数据8字符
+                'netinflow_3days': { min: 169, max: 225, default: 188 }, // 3日主力净流入: 表头7字, 数据12字符
+                'netinflow_5days': { min: 169, max: 225, default: 188 }, // 5日主力净流入: 表头7字, 数据12字符
+                'netprofit_growthrate_3y': { min: 118, max: 158, default: 132 }, // 净利润3年复合增长率: 表头10字, 数据8字符
+                'new_down': { min: 144, max: 192, default: 160 }, // 人气排名创新低: 表头7字, 数据10字符
+                'new_high': { min: 144, max: 192, default: 160 }, // 人气排名创新高: 表头7字, 数据10字符
+                'newfans_ratio': { min: 118, max: 158, default: 132 }, // 新晋粉丝占比: 表头6字, 数据8字符
+                'now_newhigh': { min: 144, max: 192, default: 160 }, // 今日创历史新高: 表头7字, 数据10字符
+                'now_newlow': { min: 144, max: 192, default: 160 }, // 今日创历史新低: 表头7字, 数据10字符
+                'nowinterst_ratio': { min: 169, max: 225, default: 188 }, // 当日增仓占比: 表头6字, 数据12字符
+                'nowinterst_ratio_3d': { min: 118, max: 158, default: 132 }, // 3日增仓占比: 表头6字, 数据8字符
+                'nowinterst_ratio_5d': { min: 118, max: 158, default: 132 }, // 5日增仓占比: 表头6字, 数据8字符
+                'one_dayang_line': { min: 144, max: 192, default: 160 }, // 一根大阳线: 表头5字, 数据10字符
+                'operate_profit_growthrate': { min: 118, max: 158, default: 132 }, // 营业利润同比增长率: 表头9字, 数据8字符
+                'org_rating': { min: 70, max: 100, default: 80 }, // 机构评级: 表头4字
+                'org_survey_3m': { min: 144, max: 192, default: 160 }, // 近3月机构调研: 表头7字, 数据10字符
+                'par_dividend': { min: 118, max: 158, default: 132 }, // 每股红股: 表头4字, 数据8字符
+                'par_dividend_pretax': { min: 118, max: 158, default: 132 }, // 每股股利税前: 表头6字, 数据8字符
+                'par_it_equity': { min: 118, max: 158, default: 132 }, // 每股转增股本: 表头6字, 数据8字符
+                'parent_netprofit': { min: 169, max: 225, default: 188 }, // 归属净利润: 表头5字, 数据12字符
+                'pbnewmrq': { min: 118, max: 158, default: 132 }, // 市净率MRQ: 表头6字, 数据8字符
+                'pcfjyxjl9': { min: 118, max: 158, default: 132 }, // 市现率TTM: 表头6字, 数据8字符
+                'pe9': { min: 118, max: 158, default: 132 }, // 市盈率TTM: 表头6字, 数据8字符
+                'per_fcfe': { min: 118, max: 158, default: 132 }, // 每股自由现金流: 表头7字, 数据8字符
+                'per_netcash_operate': { min: 118, max: 158, default: 132 }, // 每股经营现金流: 表头7字, 数据8字符
+                'per_retained_earning': { min: 118, max: 158, default: 132 }, // 每股留存收益: 表头6字, 数据8字符
+                'per_surplus_reserve': { min: 118, max: 158, default: 132 }, // 每股盈余公积: 表头6字, 数据8字符
+                'pettmdeducted': { min: 118, max: 158, default: 132 }, // 市盈率TTM扣非: 表头8字, 数据8字符
+                'pledge_ratio': { min: 118, max: 158, default: 132 }, // 质押比例: 表头4字, 数据8字符
+                'popularity_rank': { min: 144, max: 192, default: 160 }, // 股吧人气排名: 表头6字, 数据10字符
+                'power_fulgun': { min: 144, max: 192, default: 160 }, // 强势多方炮: 表头5字, 数据10字符
+                'predict_income_ratio': { min: 118, max: 158, default: 132 }, // 预测营收同比增长: 表头8字, 数据8字符
+                'predict_netprofit_ratio': { min: 118, max: 158, default: 132 }, // 预测净利润同比增长: 表头9字, 数据8字符
+                'predict_pe_nyear': { min: 118, max: 158, default: 132 }, // 预测市盈率明年: 表头7字, 数据8字符
+                'predict_pe_syear': { min: 118, max: 158, default: 132 }, // 预测市盈率今年: 表头7字, 数据8字符
+                'predict_type': { min: 70, max: 100, default: 80 }, // 业绩预告: 表头4字
+                'pregnant': { min: 144, max: 192, default: 160 }, // 身怀六甲: 表头4字, 数据10字符
+                'ps9': { min: 118, max: 158, default: 132 }, // 市销率TTM: 表头6字, 数据8字符
+                'rank_change': { min: 144, max: 192, default: 160 }, // 人气排名变化: 表头6字, 数据10字符
+                'recapitalize_1m': { min: 144, max: 192, default: 160 }, // 资产重组近1个月: 表头8字, 数据10字符
+                'recapitalize_1y': { min: 144, max: 192, default: 160 }, // 资产重组近1年: 表头7字, 数据10字符
+                'recapitalize_3m': { min: 144, max: 192, default: 160 }, // 资产重组近3个月: 表头8字, 数据10字符
+                'recapitalize_6m': { min: 144, max: 192, default: 160 }, // 资产重组近6个月: 表头8字, 数据10字符
+                'restore_justice': { min: 144, max: 192, default: 160 }, // 拨云见日: 表头4字, 数据10字符
+                'reversing_hammer': { min: 144, max: 192, default: 160 }, // 倒转锤头: 表头4字, 数据10字符
+                'rise_sun': { min: 144, max: 192, default: 160 }, // 旭日东升: 表头4字, 数据10字符
+                'roe_weight': { min: 118, max: 158, default: 132 }, // 净资产收益率ROE: 表头9字, 数据8字符
+                'roic': { min: 118, max: 158, default: 132 }, // 投入资本回报率ROIC: 表头11字, 数据8字符
+                'sale_gpr': { min: 118, max: 158, default: 132 }, // 毛利率: 表头3字, 数据8字符
+                'sale_npr': { min: 118, max: 158, default: 132 }, // 净利率: 表头3字, 数据8字符
+                'secucode': { min: 70, max: 100, default: 80 }, // 全代码: 表头3字
+                'short_avg_array': { min: 144, max: 192, default: 160 }, // 均线空头排列: 表头6字, 数据10字符
+                'speed_ratio': { min: 118, max: 158, default: 132 }, // 速动比率: 表头4字, 数据8字符
+                'style': { min: 70, max: 100, default: 80 }, // 板块: 表头2字
+                'toi_yoy_ratio': { min: 118, max: 158, default: 132 }, // 营收增长率: 表头5字, 数据8字符
+                'total_operate_income': { min: 169, max: 225, default: 188 }, // 营业总收入: 表头5字, 数据12字符
+                'total_profit_growthrate': { min: 118, max: 158, default: 132 }, // 利润总额同比增长率: 表头9字, 数据8字符
+                'two_dayang_lines': { min: 144, max: 192, default: 160 }, // 两根大阳线: 表头5字, 数据10字符
+                'upnday': { min: 144, max: 192, default: 160 }, // 连涨天数: 表头4字, 数据10字符
+                'upp_days': { min: 144, max: 192, default: 160 }, // 人气排名连涨: 表头6字, 数据10字符
+                'upper_4days': { min: 144, max: 192, default: 160 }, // 四串阳: 表头3字, 数据10字符
+                'upper_8days': { min: 144, max: 192, default: 160 }, // 八仙过海(八连阳): 表头9字, 数据10字符
+                'upper_9days': { min: 144, max: 192, default: 160 }, // 九阳神功(九连阳): 表头9字, 数据10字符
+                'upper_large_volume': { min: 144, max: 192, default: 160 }, // 连涨放量: 表头4字, 数据10字符
+                'upside_volume': { min: 144, max: 192, default: 160 }, // 放量上攻: 表头4字, 数据10字符
+                'volume_ratio': { min: 118, max: 158, default: 132 }, // 量比: 表头2字, 数据8字符
+                'win_market_10days': { min: 144, max: 192, default: 160 }, // 近期跑赢大盘近10日: 表头10字, 数据10字符
+                'win_market_20days': { min: 144, max: 192, default: 160 }, // 近期跑赢大盘近20日: 表头10字, 数据10字符
+                'win_market_30days': { min: 144, max: 192, default: 160 }, // 近期跑赢大盘近30日: 表头10字, 数据10字符
+                'win_market_3days': { min: 144, max: 192, default: 160 }, // 近期跑赢大盘近3日: 表头9字, 数据10字符
+                'win_market_5days': { min: 144, max: 192, default: 160 }, // 近期跑赢大盘近5日: 表头9字, 数据10字符
+                'ycpeg': { min: 118, max: 158, default: 132 }, // 预测PEG: 表头5字, 数据8字符
+                'zxgxl': { min: 118, max: 158, default: 132 }, // 最新股息率: 表头5字, 数据8字符
+
+                // 每日股票数据 (cn_stock_spot)
+                'pe': { min: 118, max: 158, default: 132 }, // 市盈率静: 表头4字, 数据8字符
+                'speed_increase': { min: 118, max: 158, default: 132 }, // 涨速: 表头2字, 数据8字符
+                'speed_increase_5': { min: 118, max: 158, default: 132 }, // 5分钟涨跌: 表头5字, 数据8字符
+                'speed_increase_60': { min: 118, max: 158, default: 132 }, // 60日涨跌幅: 表头6字, 数据8字符
+                'speed_increase_all': { min: 118, max: 158, default: 132 }, // 年初至今涨跌幅: 表头7字, 数据8字符
+
+                // 基本面选股 (cn_stock_spot_buy)
+
+                // 股票龙虎榜(新浪) (cn_stock_top)
+                'buy_seat': { min: 118, max: 158, default: 132 }, // 买入席位数: 表头5字, 数据8字符
+                'net_amount': { min: 118, max: 158, default: 132 }, // 净额: 表头2字, 数据8字符
+                'sell_seat': { min: 118, max: 158, default: 132 }, // 卖出席位数: 表头5字, 数据8字符
+
+            };

@@ -35,6 +35,63 @@
 </div>
 <script type="text/javascript">
     if('ontouchstart' in document.documentElement) document.getElementById('navbar').style.display = "block";
+    
+    // 处理左侧菜单点击事件，保留当前日期参数
+    $(document).ready(function() {
+        console.log('🔍 左侧菜单初始化开始...');
+        
+        // 获取当前URL中的date参数
+        const currentDate = $.getUrlVar('date');
+        console.log('📅 当前URL:', window.location.href);
+        console.log('📅 当前date参数:', currentDate);
+        
+        // 立即执行，不等待延迟
+        if (currentDate) {
+            console.log('✅ 检测到date参数，开始更新菜单链接...');
+            
+            // 为所有菜单链接添加该参数
+            const menuLinks = $('#sidebar a[data-table-url]');
+            console.log('🔗 找到菜单链接数量:', menuLinks.length);
+            
+            if (menuLinks.length === 0) {
+                console.error('❌ 未找到任何菜单链接！检查HTML结构');
+                return;
+            }
+            
+            menuLinks.each(function(index) {
+                const baseUrl = $(this).data('table-url');
+                if (!baseUrl) {
+                    console.warn(`⚠️  链接 ${index} 没有 data-table-url 属性`);
+                    return;
+                }
+                
+                // 移除已有的date参数（避免重复添加）
+                let cleanUrl = baseUrl;
+                if (cleanUrl.includes('?')) {
+                    const parts = cleanUrl.split('?');
+                    const path = parts[0];
+                    const params = parts[1].split('&').filter(p => !p.startsWith('date='));
+                    cleanUrl = path + (params.length > 0 ? '?' + params.join('&') : '');
+                }
+                
+                // 添加新的date参数
+                const separator = cleanUrl.indexOf('?') >= 0 ? '&' : '?';
+                const newHref = cleanUrl + separator + 'date=' + currentDate;
+                $(this).attr('href', newHref);
+                
+                // 同时更新 data-table-url 属性
+                $(this).data('table-url', cleanUrl);
+                
+                if (index < 3) {  // 只打印前3个
+                    console.log(`   [${index}] ${baseUrl} → ${newHref}`);
+                }
+            });
+            
+            console.log('✅ 菜单链接更新完成');
+        } else {
+            console.log('⚠️  URL中没有date参数，保持原样');
+        }
+    });
 </script>
 <div id="sidebar" class="sidebar responsive ace-save-state navbar_fixed sidebar-fixed">
     <ul class="nav nav-list">
@@ -101,7 +158,7 @@
                 {% except %}
                 {% end %}
                 <li class="{{ isActiveStr }}">
-                    <a href="{{ leftMenuTmp.url }}">
+                    <a href="{{ leftMenuTmp.url }}" data-table-url="{{ leftMenuTmp.url }}">
                         <i class="menu-icon fa fa-caret-right"></i>
                         {{ leftMenuTmp.name }}
                     </a>

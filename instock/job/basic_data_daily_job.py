@@ -1,8 +1,15 @@
 #!/usr/local/bin/python3
 # -*- coding: utf-8 -*-
 """
-基础数据每日任务模块（第二层核心）
+基础数据每日任务模块（第二层核心）【已废弃】
 ===================================
+⚠️  注意：此文件已废弃，请使用新的独立任务文件：
+   - instock/job/data_tasks/stock_spot_job.py (股票基础数据)
+   - instock/job/data_tasks/etf_spot_job.py (ETF基础数据)
+
+此文件保留仅用于向后兼容和参考。
+
+原功能说明：
 这是数据抓取的核心模块，负责每天抓取股票和ETF的实时数据。
 
 什么是基础数据？
@@ -62,6 +69,7 @@ import instock.core.tablestructure as tbs  # 表结构定义
 import instock.lib.database as mdb  # 数据库操作
 import instock.core.stockfetch as stf  # 股票数据抓取
 from instock.core.singleton_stock import stock_data  # 股票数据单例
+import pandas as pd  # pandas数据处理库
 
 __author__ = 'myh '
 __date__ = '2023/3/10 '
@@ -123,6 +131,7 @@ def save_nph_stock_spot_data(date, before=True):
             del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
             # 执行删除
             mdb.executeSql(del_sql)
+            logging.info(f"🗑️  已删除 {table_name} 表中 {date} 的旧数据")
             # 表已存在，不需要指定字段类型（已有表结构）
             cols_type = None
         else:
@@ -130,6 +139,13 @@ def save_nph_stock_spot_data(date, before=True):
             # 需要指定字段类型，创建表时使用
             # get_field_types()：从表结构定义中提取字段类型
             cols_type = tbs.get_field_types(tbs.TABLE_CN_STOCK_SPOT['columns'])
+            logging.info(f"📋 表 {table_name} 不存在，将创建新表")
+        
+        # 准备插入数据
+        logging.info(f"💾 准备插入数据到表: {table_name} (股票基础数据)")
+        logging.info(f"   目标日期: {date}")
+        logging.info(f"   数据量: {len(data)}条记录")
+        logging.info(f"   开始插入数据...")
 
         # 步骤5: 插入数据到数据库
         # insert_db_from_df()：从DataFrame插入数据
@@ -191,17 +207,41 @@ def save_nph_etf_spot_data(date, before=True):
         # 步骤3: 获取ETF表名
         table_name = tbs.TABLE_CN_ETF_SPOT['name']  # 'cn_etf_spot'
         
-        # 步骤4: 删除旧数据
+        # 步骤4: 数据清洗 - 处理无效值
+        # 将 "-"、"--"、"N/A" 等无效字符串替换为 0 或 None
+        # 需要清洗所有数值类型的列
+        numeric_columns = ['new_price', 'change_rate', 'ups_downs',
+                          'volume', 'deal_amount', 'open_price', 
+                          'high_price', 'low_price', 'pre_close_price',
+                          'turnoverrate', 'total_market_cap', 'free_cap']
+        
+        for col in numeric_columns:
+            if col in data.columns:
+                # 将非数字值转换为 NaN，然后填充为 0
+                data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
+                # 确保整数类型字段是整数
+                if col in ['volume', 'deal_amount', 'total_market_cap', 'free_cap']:
+                    data[col] = data[col].astype(int)
+        
+        # 步骤5: 删除旧数据
         if mdb.checkTableIsExist(table_name):
             # 表存在，删除旧数据
             del_sql = f"DELETE FROM `{table_name}` where `date` = '{date}'"
             mdb.executeSql(del_sql)
+            logging.info(f"🗑️  已删除 {table_name} 表中 {date} 的旧数据")
             cols_type = None
         else:
             # 表不存在，获取字段类型
             cols_type = tbs.get_field_types(tbs.TABLE_CN_ETF_SPOT['columns'])
+            logging.info(f"📋 表 {table_name} 不存在，将创建新表")
+        
+        # 准备插入数据
+        logging.info(f"💾 准备插入数据到表: {table_name} (ETF基础数据)")
+        logging.info(f"   目标日期: {date}")
+        logging.info(f"   数据量: {len(data)}条记录")
+        logging.info(f"   开始插入数据...")
 
-        # 步骤5: 插入ETF数据
+        # 步骤6: 插入ETF数据
         mdb.insert_db_from_df(data, table_name, cols_type, False, "`date`,`code`")
         
         logging.info(f"保存ETF数据成功：{date}，共{len(data)}条")
@@ -244,19 +284,24 @@ python basic_data_daily_job.py 2024-01-01 2024-01-10
 - Web展示：显示最新行情
 """
 def main():
+    # 导入任务工具
+    from instock.job.task_utils import log_task_start
+    
     # 执行股票数据保存任务
+    log_task_start("stock_spot_data", "抓取股票实时行情数据")
     # run_with_args()会处理：
     # 1. 解析命令行参数
     # 2. 判断是否交易日
     # 3. 循环处理多个日期
     # 4. 调用传入的函数（save_nph_stock_spot_data）
-    runt.run_with_args(save_nph_stock_spot_data)
+    runt.run_with_args(save_nph_stock_spot_data)  # 注释：每日股票数据已存在，暂不重复拉取
     
     # 执行ETF数据保存任务
-    runt.run_with_args(save_nph_etf_spot_data)
+    log_task_start("etf_spot_data", "抓取ETF实时行情数据")
+    runt.run_with_args(save_nph_etf_spot_data)  # 注释：每日ETF数据已存在，暂不重复拉取
     
     # 任务完成
-    logging.info("基础数据任务执行完成")
+    logging.info("抓取基础数据 完成")
 
 
 # ==================== 程序入口 ====================
@@ -285,10 +330,16 @@ if __name__ == '__main__':
 
 """
 ===========================================
-基础数据任务模块使用总结（给Python新手）
+基础数据任务模块使用总结（给Python新手）【已废弃】
 ===========================================
 
-1. 模块定位
+⚠️  重要提示：
+此文件已废弃，不再被 execute_daily_job.py 调用。
+请使用新的独立任务文件：
+   - python instock/job/data_tasks/stock_spot_job.py [日期]
+   - python instock/job/data_tasks/etf_spot_job.py [日期]
+
+原模块定位
    - 第二层：数据抓取层
    - 核心模块：所有数据的源头
    - 依赖：网络抓取模块

@@ -17,32 +17,17 @@ EXPOSE 9988
 # 安装依赖库
 # apt-get autoremove -y 删除没有用的依赖lib
 # apt-get --purge remove 软件包名称 , 删除已安装包（不保留配置文件)
-RUN sed -i "s@http://\(deb\|security\).debian.org@https://mirrors.aliyun.com@g" /etc/apt/sources.list && \
+RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bullseye main contrib non-free\n\
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bullseye-updates main contrib non-free\n\
+deb https://mirrors.tuna.tsinghua.edu.cn/debian-security/ bullseye-security main contrib non-free" > /etc/apt/sources.list && \
     echo  "[global]\n\
-index-url = https://mirrors.aliyun.com/pypi/simple\n\
-trusted-host = mirrors.aliyun.com" > /etc/pip.conf && \
+index-url = https://pypi.tuna.tsinghua.edu.cn/simple\n\
+trusted-host = pypi.tuna.tsinghua.edu.cn" > /etc/pip.conf && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone && \
     apt-get update && \
-    apt-get install -y cron gcc make python3-dev default-libmysqlclient-dev build-essential pkg-config curl && \
-    pip install supervisor && \
-    pip install mysqlclient && \
-    pip install requests && \
-    pip install arrow && \
-    pip install numpy && \
-    pip install SQLAlchemy && \
-    pip install PyMySQL && \
-    pip install Logbook && \
-    pip install python_dateutil && \
-    pip install py_mini_racer && \
-    pip install tqdm && \
-    pip install beautifulsoup4 && \
-    pip install bokeh && \
-    pip install pandas && \
-    pip install urllib3 && \
-    pip install tornado && \
-    pip install mini-racer && \
-    pip install easytrader && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cron gcc make python3-dev default-libmysqlclient-dev build-essential pkg-config curl && \
+    pip install --no-cache-dir supervisor mysqlclient requests arrow numpy SQLAlchemy PyMySQL Logbook python_dateutil py_mini_racer tqdm beautifulsoup4 bokeh pandas urllib3 tornado mini-racer easytrader && \
     mkdir ta-lib && \
     curl -SL $(curl -s https://api.github.com/repos/ta-lib/ta-lib/releases/latest | grep browser_download_url | cut -d'"' -f4 |grep -E 'tar.gz$') | tar -xz --strip-components=1 -C ./ta-lib && \
     cd ta-lib/ && \
@@ -57,7 +42,8 @@ trusted-host = mirrors.aliyun.com" > /etc/pip.conf && \
 
 WORKDIR /data
 #InStock软件
-COPY stock /data/InStock
+COPY instock /data/InStock/instock
+COPY supervisor /data/InStock/supervisor
 COPY cron/cron.hourly /etc/cron.hourly
 COPY cron/cron.workdayly /etc/cron.workdayly
 COPY cron/cron.monthly /etc/cron.monthly
@@ -65,6 +51,8 @@ COPY cron/cron.monthly /etc/cron.monthly
 #add cron sesrvice.
 #任务调度
 RUN chmod 755 /data/InStock/instock/bin/run_*.sh && \
+    # 修复 Windows 行尾符问题 (CRLF -> LF)
+    sed -i 's/\r$//' /data/InStock/instock/bin/*.sh && \
     chmod 755 /etc/cron.hourly/* && chmod 755 /etc/cron.workdayly/* && chmod 755 /etc/cron.monthly/* && \
     echo "SHELL=/bin/sh \n\
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin \n\
