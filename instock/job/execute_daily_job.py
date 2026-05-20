@@ -376,25 +376,21 @@ def main():
     log_task_start("sequential_tasks", "串行执行其他基础数据抓取任务")
     # 这些任务相互独立，串行执行以保证日志顺序清晰、便于调试
     
-    # 任务1：其他基础数据
-    # 涉及以下数据表和独立任务：
-    #   1. cn_stock_lhb - 龙虎榜明细 (cn_stock_lhb_job)
-    #   2. cn_stock_top - 龙虎榜汇总 (cn_stock_top_job)
-    #   3. cn_stock_fund_flow - 个股资金流向 (cn_stock_fund_flow_job)
-    #   4. cn_stock_fund_flow_industry - 行业资金流向 (cn_stock_fund_flow_industry_job)
-    #   5. cn_stock_fund_flow_concept - 概念资金流向 (cn_stock_fund_flow_concept_job)
-    #   6. cn_stock_bonus - 分红配送 (cn_stock_bonus_job)
-    #   7. cn_stock_chip_race_open - 早盘抢筹 (cn_stock_chip_race_open_job)
-    #   8. cn_stock_limitup_reason - 涨停原因 (cn_stock_limitup_reason_job)
+    # 任务1：其他基础数据（8个数据表）
+    # 包括：龙虎榜明细/汇总、个股/行业/概念资金流向、分红配送、早盘抢筹、涨停原因
+    log_task_start("other_basic_data", "抓取其他基础数据（龙虎榜、资金流向等）")
     basic_data_other_daily_job.main()
 
-    # 任务2：计算技术指标
+    # 任务2：计算技术指标（MACD、KDJ、RSI等）
+    log_task_start("calculate_indicators", "计算股票技术指标")
     indicators_data_daily_job.main()  # 依赖：历史K线数据
 
-    # 任务3：识别K线形态
+    # 任务3：识别K线形态（早晨之星、黄昏之星等）
+    log_task_start("recognize_kline_patterns", "识别K线形态")
     klinepattern_data_daily_job.main()  # 依赖：历史K线数据
 
-    # 任务4：策略选股
+    # 任务4：策略选股（多因子策略、技术形态策略等）
+    log_task_start("strategy_selection", "执行策略选股")
     strategy_data_daily_job.main()  # 依赖：历史K线数据
 
     # 步骤4：回测验证（当前已注释，按需开启）
