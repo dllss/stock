@@ -506,17 +506,18 @@ def main_calculate_only():
     # 任务开始日志
     log_task_start("calculate_only_mode", "仅执行计算任务模式（跳过初始化和基础数据抓取）")
     
-    # ==================== 步骤3：串行执行多个任务 ====================
-    # 这些任务相互独立，串行执行以保证日志顺序清晰、便于调试
-    
-    # 任务2：计算技术指标
-    indicators_data_daily_job.main()  # 依赖：历史K线数据
+    # ==================== 步骤3：并行执行多个任务 ====================
+    # 这些任务相互独立，可以同时执行，提高效率
+    with concurrent.futures.ThreadPoolExecutor() as executor:
 
-    # 任务3：识别K线形态
-    klinepattern_data_daily_job.main()  # 依赖：历史K线数据
+        # 任务2：计算技术指标
+        executor.submit(indicators_data_daily_job.main)  # 依赖：历史K线数据
 
-    # 任务4：策略选股
-    strategy_data_daily_job.main()  # 依赖：历史K线数据
+        # 任务3：识别K线形态
+        executor.submit(klinepattern_data_daily_job.main)  # 依赖：历史K线数据（与任务2并行）
+
+        # 任务4：策略选股
+        executor.submit(strategy_data_daily_job.main)  # 依赖：历史K线数据（与任务2、3并行）
 
     # 步骤4：回测验证
     # 【重要】直接调用prepare(None)，回测所有历史待回测记录
