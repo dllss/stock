@@ -302,15 +302,15 @@
         gridApi = agGrid.createGrid(eGridDiv, gridOptions);
     }
 
-    // 股票代码单元格渲染器 - 跳转到东方财富
+    // 股票代码单元格渲染器 - 跳转到百度财经
     function codeCellRenderer(params) {
         const code = params.value;
         if (!code) return '';
         
-        // 跳转到东方财富个股页面
-        const eastmoneyUrl = `https://quote.eastmoney.com/${code}.html`;
+        // 跳转到百度财经个股页面
+        const baiduFinanceUrl = `https://finance.baidu.com/stock/ab-${code}`;
         
-        return `<a href="${eastmoneyUrl}" 
+        return `<a href="${baiduFinanceUrl}" 
                    target="_blank" 
                    style="color: #1890ff; text-decoration: none;">
                    ${code}
