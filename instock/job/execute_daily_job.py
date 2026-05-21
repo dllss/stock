@@ -393,8 +393,11 @@ def main():
     log_task_start("strategy_selection", "执行策略选股")
     strategy_data_daily_job.main()  # 依赖：历史K线数据
 
-    # 步骤4：回测验证（当前已注释，按需开启）
-    backtest_data_daily_job.main()  # 需要先有策略选股结果
+    # 步骤4：回测验证
+    # 【重要】直接调用prepare(None)，回测所有历史待回测记录
+    # 而不是通过run_with_args获取今天的日期（会导致只回测当天）
+    from instock.job import backtest_data_daily_job
+    backtest_data_daily_job.prepare(None)  # None表示回测所有待回测的历史记录
 
     # 步骤5：收盘后数据（资金流向、分红配送、龙虎榜等）
     log_task_start("after_close_data", "抓取收盘后数据（资金流向、龙虎榜等）")
