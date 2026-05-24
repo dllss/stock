@@ -120,9 +120,10 @@ def prepare(date=None):
     latest_date = df_latest.iloc[0]['latest_date']
     logging.info(f"✅ 最新交易日期: {latest_date}")
     
-    # 如果未指定日期，使用最新日期作为回测日期
-    if date is None:
-        date = latest_date
+    # 【重要】如果未指定日期，保持date为None，让process()函数回测所有历史待回测记录
+    # 不要将None转换为latest_date，否则会导致只回测当天数据
+    # if date is None:
+    #     date = latest_date
     
     # 【关键修复】先查询所有待回测的记录，找出最早的日期
     # 这样可以确保加载足够范围的K线数据
@@ -150,12 +151,18 @@ def prepare(date=None):
         earliest_date = min(all_dates_str)
         logging.info(f"📅 最早待回测日期: {earliest_date}")
     else:
-        # 如果没有待回测记录，使用传入的date
-        earliest_date = str(date) if hasattr(date, 'year') else str(date)
-        logging.info(f"📅 没有待回测记录，使用指定日期: {earliest_date}")
+        # 如果没有待回测记录，使用传入的date或latest_date
+        if date is not None:
+            earliest_date = str(date) if hasattr(date, 'year') else str(date)
+            logging.info(f"📅 没有待回测记录，使用指定日期: {earliest_date}")
+        else:
+            # date为None时，使用latest_date作为earliest_date（虽然不会有数据）
+            earliest_date = str(latest_date) if hasattr(latest_date, 'year') else str(latest_date)
+            logging.info(f"📅 没有待回测记录，使用最新日期: {earliest_date}")
     
     # 将date转换为字符串格式（用于后续逻辑）
-    date_str = str(date) if hasattr(date, 'year') else str(date)
+    # 【重要】如果date为None，date_str也设为None，让process()函数知道要回测所有历史数据
+    date_str = str(date) if date is not None and (hasattr(date, 'year') or isinstance(date, str)) else None
     
     logging.info(f"📅 回测买入日期: {date_str}")
     logging.info(f"📊 K线数据范围: {earliest_date} 到 {latest_date}")
@@ -293,6 +300,14 @@ def process(table, data_all, date, backtest_column):
     # 否则回测所有历史待回测记录
     if date is not None:
         date_str_for_query = str(date) if hasattr(date, 'year') else str(date)
+
+        # 【重要】检查是否有后续交易日可以计算收益率
+        # 如果date >= now_date，无法计算收益率，应该跳过
+        now_date_str = str(now_date)
+        if date_str_for_query >= now_date_str:
+            logging.warning(f"⚠️ 指定日期 {date_str_for_query} 是今天或未来，没有后续数据可计算收益率，跳过")
+            return
+
         sql = f"SELECT * FROM `{table_name}` WHERE `date` = '{date_str_for_query}' AND `{column_tail}` is NULL"
         logging.info(f"📅 只回测指定日期: {date_str_for_query}")
     else:

@@ -382,11 +382,27 @@ TABLE_CN_STOCK_INDICATORS['columns'].update(STOCK_STATS_DATA['columns'])
 _tmp_columns = TABLE_CN_STOCK_FOREIGN_KEY['columns'].copy()
 _tmp_columns.update(TABLE_CN_STOCK_BACKTEST_DATA['columns'])
 
+# 为买入/卖出信号表添加涨跌幅和行业字段（用于前端展示）
+# 需要保持正确的顺序：date, code, name, change_rate, industry, rate_1~rate_100
+_tmp_columns_with_extra = {}
+
+# 先添加基础字段 (date, code, name)
+for key in TABLE_CN_STOCK_FOREIGN_KEY['columns']:
+    _tmp_columns_with_extra[key] = TABLE_CN_STOCK_FOREIGN_KEY['columns'][key]
+
+# 然后添加新字段 (change_rate, industry)
+_tmp_columns_with_extra['change_rate'] = {'type': FLOAT, 'cn': '当日涨跌幅(%)', 'size': 95}
+_tmp_columns_with_extra['industry'] = {'type': VARCHAR(20, _COLLATE), 'cn': '所处行业', 'size': 100}
+
+# 最后添加回测数据字段 (rate_1 ~ rate_100)
+for key in TABLE_CN_STOCK_BACKTEST_DATA['columns']:
+    _tmp_columns_with_extra[key] = TABLE_CN_STOCK_BACKTEST_DATA['columns'][key]
+
 TABLE_CN_STOCK_INDICATORS_BUY = {'name': 'cn_stock_indicators_buy', 'cn': '股票指标买入',
-                                 'columns': _tmp_columns}
+                                 'columns': _tmp_columns_with_extra}
 
 TABLE_CN_STOCK_INDICATORS_SELL = {'name': 'cn_stock_indicators_sell', 'cn': '股票指标卖出',
-                                  'columns': _tmp_columns}
+                                  'columns': _tmp_columns_with_extra}
 
 TABLE_CN_STOCK_STRATEGIES = [
     {'name': 'cn_stock_strategy_enter', 'cn': '放量上涨', 'size': 70, 'func': enter.check_volume,

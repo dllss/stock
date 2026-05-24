@@ -50,6 +50,7 @@ import logging
 import datetime
 import instock.lib.trade_time as trd
 import instock.core.singleton_stock_web_module_data as sswmd
+import instock.core.tablestructure as tbs
 import instock.web.base as webBase
 
 __author__ = 'myh '
@@ -344,10 +345,135 @@ class GetStockDataHandler(webBase.BaseHandler, ABC):
             # 示例：SELECT *, (close-open)/open AS change_rate
             order_columns = f",{web_module_data.order_columns}"
 
-        # ==================== 步骤7: 构建完整SQL ====================
-        # 组合所有部分形成完整的SQL语句
-        # 示例：SELECT * FROM `stock_zh_a_spot_em` WHERE `date` = %s ORDER BY `code`
-        sql = f" SELECT *{order_columns} FROM `{web_module_data.table_name}`{where}{order_by}"
+        # ==================== 步骤7: 特殊表处理 - 买入/卖出信号表 ====================
+        # 对于 cn_stock_indicators_buy/sell，需要关联查询涨跌幅和行业
+        if web_module_data.table_name in ['cn_stock_indicators_buy', 'cn_stock_indicators_sell']:
+            # 构建JOIN查询，从 cn_stock_spot 获取涨跌幅和行业
+            # 注意：WHERE条件中必须明确指定使用main表的date字段
+            where_clause = ""
+            if date is None:
+                where_clause = ""
+            else:
+                where_clause = f" WHERE main.`date` = %s"  # 明确指定 main.date
+            
+            # 对于特殊表，需要添加 cdatetime 字段（用于排序）
+            # 注意：字段顺序很重要，change_rate 和 industry 要放在 name 后面
+            sql = f"""
+                SELECT 
+                    main.`date`,
+                    main.`code`,
+                    main.`name`,
+                    spot.`change_rate`,
+                    spot.`industry`,
+                    (SELECT `datetime` FROM `{tbs.TABLE_CN_STOCK_ATTENTION['name']}` WHERE `code`=main.`code`) AS `cdatetime`,
+                    main.`rate_1`,
+                    main.`rate_2`,
+                    main.`rate_3`,
+                    main.`rate_4`,
+                    main.`rate_5`,
+                    main.`rate_6`,
+                    main.`rate_7`,
+                    main.`rate_8`,
+                    main.`rate_9`,
+                    main.`rate_10`,
+                    main.`rate_11`,
+                    main.`rate_12`,
+                    main.`rate_13`,
+                    main.`rate_14`,
+                    main.`rate_15`,
+                    main.`rate_16`,
+                    main.`rate_17`,
+                    main.`rate_18`,
+                    main.`rate_19`,
+                    main.`rate_20`,
+                    main.`rate_21`,
+                    main.`rate_22`,
+                    main.`rate_23`,
+                    main.`rate_24`,
+                    main.`rate_25`,
+                    main.`rate_26`,
+                    main.`rate_27`,
+                    main.`rate_28`,
+                    main.`rate_29`,
+                    main.`rate_30`,
+                    main.`rate_31`,
+                    main.`rate_32`,
+                    main.`rate_33`,
+                    main.`rate_34`,
+                    main.`rate_35`,
+                    main.`rate_36`,
+                    main.`rate_37`,
+                    main.`rate_38`,
+                    main.`rate_39`,
+                    main.`rate_40`,
+                    main.`rate_41`,
+                    main.`rate_42`,
+                    main.`rate_43`,
+                    main.`rate_44`,
+                    main.`rate_45`,
+                    main.`rate_46`,
+                    main.`rate_47`,
+                    main.`rate_48`,
+                    main.`rate_49`,
+                    main.`rate_50`,
+                    main.`rate_51`,
+                    main.`rate_52`,
+                    main.`rate_53`,
+                    main.`rate_54`,
+                    main.`rate_55`,
+                    main.`rate_56`,
+                    main.`rate_57`,
+                    main.`rate_58`,
+                    main.`rate_59`,
+                    main.`rate_60`,
+                    main.`rate_61`,
+                    main.`rate_62`,
+                    main.`rate_63`,
+                    main.`rate_64`,
+                    main.`rate_65`,
+                    main.`rate_66`,
+                    main.`rate_67`,
+                    main.`rate_68`,
+                    main.`rate_69`,
+                    main.`rate_70`,
+                    main.`rate_71`,
+                    main.`rate_72`,
+                    main.`rate_73`,
+                    main.`rate_74`,
+                    main.`rate_75`,
+                    main.`rate_76`,
+                    main.`rate_77`,
+                    main.`rate_78`,
+                    main.`rate_79`,
+                    main.`rate_80`,
+                    main.`rate_81`,
+                    main.`rate_82`,
+                    main.`rate_83`,
+                    main.`rate_84`,
+                    main.`rate_85`,
+                    main.`rate_86`,
+                    main.`rate_87`,
+                    main.`rate_88`,
+                    main.`rate_89`,
+                    main.`rate_90`,
+                    main.`rate_91`,
+                    main.`rate_92`,
+                    main.`rate_93`,
+                    main.`rate_94`,
+                    main.`rate_95`,
+                    main.`rate_96`,
+                    main.`rate_97`,
+                    main.`rate_98`,
+                    main.`rate_99`,
+                    main.`rate_100`
+                FROM `{web_module_data.table_name}` AS main
+                LEFT JOIN `cn_stock_spot` AS spot 
+                    ON main.`code` = spot.`code` AND main.`date` = spot.`date`
+                {where_clause}{order_by}
+            """
+        else:
+            # 其他表：使用原有逻辑
+            sql = f" SELECT *{order_columns} FROM `{web_module_data.table_name}`{where}{order_by}"
         
         # ==================== 步骤8: 执行数据库查询 ====================
         # 使用self.db.query执行查询

@@ -89,6 +89,24 @@ function getColumnWidthConfig() {
         },
         
         // ============================================
+        // cn_stock_indicators_buy/sell (指标买入/卖出信号) - 105 columns
+        // ============================================
+        'cn_stock_indicators_buy': {
+            'date': { min: 100, max: 130, default: 115 },           // 日期
+            'code': { min: 85, max: 110, default: 98 },             // 代码
+            'name': { min: 85, max: 110, default: 98 },             // 名称
+            'change_rate': { min: 100, max: 130, default: 115 },    // 当日涨跌幅(%)
+            'industry': { min: 85, max: 110, default: 98 },         // 所处行业
+        },
+        'cn_stock_indicators_sell': {
+            'date': { min: 100, max: 130, default: 115 },           // 日期
+            'code': { min: 85, max: 110, default: 98 },             // 代码
+            'name': { min: 85, max: 110, default: 98 },             // 名称
+            'change_rate': { min: 100, max: 130, default: 115 },    // 当日涨跌幅(%)
+            'industry': { min: 85, max: 110, default: 98 },         // 所处行业
+        },
+        
+        // ============================================
         // cn_etf_spot (每日ETF数据) - 15 columns
         // ============================================
         'cn_etf_spot': {
