@@ -7,10 +7,15 @@
 
 import time
 import json
-import os
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT_DIR))
+
 from instock.config.delay_manager import get_DELAY_MIN, get_DELAY_MAX, get_delay_config, save_delay_config
 
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'instock', 'config', 'delay_config.json')
+CONFIG_FILE = ROOT_DIR / 'instock' / 'config' / 'delay_config.json'
 
 
 def demo_realtime_update():

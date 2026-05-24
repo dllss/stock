@@ -579,7 +579,7 @@ else:
 print("表不存在，需要创建")
 """
 def checkTableIsExist(tableName):
-    logging.info(f"🔍 检查表是否存在: {tableName}")
+    logging.debug(f"🔍 检查表是否存在: {tableName}")
     with get_connection() as conn:
         with conn.cursor() as db:
             # 查询information_schema.tables表
@@ -592,12 +592,13 @@ def checkTableIsExist(tableName):
             
             # fetchone()获取一行结果，返回元组
             # [0]取第一个元素，即COUNT(*)的值
-            result = db.fetchone()[0]
+            fetch_result = db.fetchone()
+            result = fetch_result[0] if fetch_result else 0
             if result == 1:
-                logging.info(f"✅ 表 {tableName} 存在")
+                logging.debug(f"✅ 表 {tableName} 存在")
                 return True  # 找到1条记录，表示表存在
             else:
-                logging.info(f"❌ 表 {tableName} 不存在")
+                logging.warning(f"❌ 表 {tableName} 不存在")
     return False  # 没找到，表不存在
 
 

@@ -34,30 +34,12 @@ sys.path.append(cpath)
 
 # ==================== 导入项目模块 ====================
 from instock.core.crawling.stock_hist_em import stock_zh_a_hist
+from instock.core.crawling.kline_utils import KLINE_COLUMNS, apply_kline_columns
+from instock.core.crawling.market_utils import get_market_id
 import instock.lib.database as mdb  # 数据库操作
 import instock.core.tablestructure as tbs  # 表结构定义
 from sqlalchemy import DATE, VARCHAR, DECIMAL, BIGINT
 
-
-def get_market_id(stock_code: str) -> str:
-    """
-    根据股票代码判断市场ID（简化版，无需网络请求）
-    
-    规则：
-    - 6开头：沪市（market_id = 1）
-    - 0、3开头：深市（market_id = 0）
-    - 4、8开头：北交所（market_id = 0）
-    
-    参数：
-        stock_code: 股票代码（如：600519）
-        
-    返回：
-        市场ID字符串（"0" 或 "1"）
-    """
-    if stock_code.startswith('6'):
-        return '1'  # 沪市
-    else:
-        return '0'  # 深市、北交所
 
 __author__ = 'AI Assistant'
 __date__ = '2026/05/04'
@@ -136,10 +118,7 @@ def fetch_single_stock_history_fast(stock_code: str, start_date: str, end_date: 
         temp_df = pd.DataFrame([item.split(",") for item in klines])
         
         # 重命名列
-        temp_df.columns = [
-            "日期", "开盘", "收盘", "最高", "最低",
-            "成交量", "成交额", "振幅", "涨跌幅", "涨跌额", "换手率"
-        ]
+        temp_df = apply_kline_columns(temp_df)
         
         # 转换数据类型
         temp_df["日期"] = pd.to_datetime(temp_df["日期"])

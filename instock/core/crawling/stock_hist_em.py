@@ -12,6 +12,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.core.crawling.kline_utils import KLINE_COLUMNS as KLINE_DAILY_COLUMNS, apply_kline_columns
 from instock.config.delay_manager import sleep_with_delay
 
 __author__ = 'myh '
@@ -229,10 +230,27 @@ def code_id_map_em(use_cache: bool = True, cache_expire_hours: int = 720) -> dic
                 print(f"✅ 从缓存加载股票代码映射表（缓存时间: {cache_time.strftime('%Y-%m-%d %H:%M:%S')}）")
                 code_map = cache_data.get('code_map', {})
                 
-                # 【向后兼容】如果是旧版本（简单数字映射），需要升级
+                # 【向后兼容】旧版本是简单数字映射；这里迁移成新结构，避免返回 None 或继续扩散旧格式。
                 if code_map and isinstance(list(code_map.values())[0], int):
-                    print(f"⚠️  检测到旧版本缓存格式，正在升级到新版本...")
-                    return None  # 返回None触发重新获取
+                    print(f"⚠️  检测到旧版本缓存格式，正在兼容迁移为新格式...")
+                    market_meta = {
+                        0: ("深圳证券交易所", "SZ"),
+                        1: ("上海证券交易所", "SH"),
+                        2: ("北京证券交易所", "BJ"),
+                    }
+                    upgraded_map = {}
+                    for code, market_id in code_map.items():
+                        market_name, market_code = market_meta.get(market_id, ("", ""))
+                        upgraded_map[code] = {
+                            "name": "",
+                            "market_id": market_id,
+                            "market_name": market_name,
+                            "market_code": market_code,
+                            "stock_type": "",
+                            "industry": "",
+                            "listing_date": "",
+                        }
+                    return upgraded_map
                 
                 return code_map
             else:
@@ -513,19 +531,7 @@ def stock_zh_a_hist(
     temp_df = pd.DataFrame(
         [item.split(",") for item in data_json["data"]["klines"]]
     )
-    temp_df.columns = [
-        "日期",
-        "开盘",
-        "收盘",
-        "最高",
-        "最低",
-        "成交量",
-        "成交额",
-        "振幅",
-        "涨跌幅",
-        "涨跌额",
-        "换手率",
-    ]
+    temp_df = apply_kline_columns(temp_df)
     temp_df.index = pd.to_datetime(temp_df["日期"])
     temp_df.reset_index(inplace=True, drop=True)
 
@@ -784,4 +790,3 @@ if __name__ == "__main__":
         adjust="hfq",
     )
     print(stock_zh_a_hist_df)
-

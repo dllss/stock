@@ -6,6 +6,9 @@
 
 import os
 import re
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
 # 需要修改的文件列表
 FILES_TO_MODIFY = [
@@ -22,7 +25,7 @@ FILES_TO_MODIFY = [
     'cn_etf_spot_job.py',
 ]
 
-BASE_DIR = os.path.join(os.path.dirname(__file__), 'instock', 'job', 'data_tasks')
+BASE_DIR = ROOT_DIR / 'instock' / 'job' / 'data_tasks'
 
 
 def add_import(filepath):

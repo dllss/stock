@@ -154,6 +154,7 @@ import math
 import pandas as pd
 from instock.core.eastmoney_fetcher import eastmoney_fetcher
 from instock.config.delay_manager import sleep_with_delay
+from instock.core.crawling.kline_utils import KLINE_COLUMNS as KLINE_DAILY_COLUMNS, apply_kline_columns
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
@@ -586,7 +587,7 @@ def fund_etf_hist_em(
         # K线字段：
         # f51:日期, f52:开盘, f53:收盘, f54:最高, f55:最低
         # f56:成交量, f57:成交额, f58:振幅, f59:涨跌幅, f60:涨跌额
-        # f61:换手率, f116:其他
+        # f61:换手率, f116:其他；当前接口通常只返回 11 列，解析层会兼容 11/12 列
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
         "ut": "7eea3edcaed734bea9cbfc24409ed989",  # 用户token
         "klt": period_dict[period],               # K线周期
@@ -616,19 +617,7 @@ def fund_etf_hist_em(
     temp_df = pd.DataFrame([item.split(",") for item in data_json["data"]["klines"]])
     
     # ==================== 步骤7: 重命名列 ====================
-    temp_df.columns = [
-        "日期",
-        "开盘",
-        "收盘",
-        "最高",
-        "最低",
-        "成交量",
-        "成交额",
-        "振幅",
-        "涨跌幅",
-        "涨跌额",
-        "换手率",
-    ]
+    temp_df = apply_kline_columns(temp_df)
     
     # ==================== 步骤8: 设置索引 ====================
     # 将日期列转换为datetime类型并设置为索引

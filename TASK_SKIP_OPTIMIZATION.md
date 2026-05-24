@@ -200,7 +200,7 @@ def check_and_skip_if_exists(table_name, date):
 3. 添加3行检查代码
 
 ### **选项3: 使用脚本**
-运行 `batch_modify_tasks.py` 自动添加import,然后手动添加检查逻辑。
+运行 `scripts/maintenance/batch_modify_tasks.py` 自动添加import,然后手动添加检查逻辑。
 
 ---
 

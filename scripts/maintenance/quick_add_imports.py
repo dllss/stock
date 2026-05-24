@@ -6,6 +6,9 @@
 
 import os
 import re
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
 FILES = [
     'cn_stock_fund_flow_industry_job.py',
@@ -15,7 +18,7 @@ FILES = [
     'cn_etf_spot_job.py',
 ]
 
-BASE = 'd:/WorkProject/stock/instock/job/data_tasks'
+BASE = ROOT_DIR / 'instock' / 'job' / 'data_tasks'
 
 for filename in FILES:
     filepath = os.path.join(BASE, filename)

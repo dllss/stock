@@ -249,7 +249,7 @@ def validate_config(config):
 运行测试脚本验证实时生效功能:
 
 ```bash
-python demo_realtime_config.py
+python scripts/demo/demo_realtime_config.py
 ```
 
 或者手动测试:

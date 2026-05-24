@@ -105,7 +105,7 @@
 
 运行方式：
 
-方式1：处理今天的数据（默认）
+方式1：处理最新交易日数据（默认）
 ```bash
 python execute_daily_job.py
 ```
@@ -272,7 +272,6 @@ import concurrent.futures  # concurrent.futures：并发执行（多线程），
 import logging  # logging：日志记录，跟踪任务执行情况
 import os.path  # os.path：文件路径处理，构建日志文件路径
 import sys  # sys：系统相关，处理命令行参数
-import pandas as pd  # pandas：数据处理
 
 # ==================== 路径和日志配置 ====================
 # 在项目运行时，临时将项目路径添加到环境变量
@@ -294,17 +293,55 @@ from instock.job import indicators_data_daily_job  # 指标计算任务
 from instock.job import strategy_data_daily_job  # 策略选股任务
 from instock.job import backtest_data_daily_job  # 回测任务
 from instock.job import klinepattern_data_daily_job  # K线形态识别任务
+from instock.job import data_validation_daily_job  # 每日数据表验证任务
 
 # 独立任务模块（data_tasks文件夹）
 from instock.job.data_tasks import cn_stock_spot_job  # 股票基础数据任务 - cn_stock_spot
 from instock.job.data_tasks import cn_etf_spot_job  # ETF基础数据任务 - cn_etf_spot
 from instock.job.data_tasks import cn_stock_selection_job  # 综合选股数据任务 - cn_stock_selection
+import instock.lib.run_template as runt  # 日期参数运行模板
+import instock.lib.trade_time as trd  # 交易日工具
 
 __author__ = 'myh '
 __date__ = '2023/3/10 '
 
 
 # ==================== 主函数 ====================
+
+def _to_date(value):
+    """
+    将 run_template 传入的日期转换为 date，供每日调度计算除权查询窗口。
+    """
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    if isinstance(value, str):
+        return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+    raise ValueError(f"Unsupported date value: {value!r}")
+
+
+def repair_adjustment_kline_for_daily_date(run_date):
+    """
+    每日总调度的除权修复包装函数。
+
+    单独执行 adjustment_data_daily_job 时默认查近 30 天；
+    每日总调度只查“上一个交易日 ~ 当前运行日”，并把明确的查询窗口传给修复任务。
+    """
+    ex_dividend_end_date = _to_date(run_date)
+    ex_dividend_start_date = trd.get_previous_trade_date(ex_dividend_end_date)
+    adjustment_data_daily_job.repair_ex_dividend_kline_data(
+        ex_dividend_end_date,
+        ex_dividend_start_date=ex_dividend_start_date,
+        ex_dividend_end_date=ex_dividend_end_date,
+    )
+
+
+def run_adjustment_kline_repair_for_daily_job():
+    """
+    使用 execute_daily_job 的日期参数运行除权 K 线修复。
+    """
+    runt.run_with_args(repair_adjustment_kline_for_daily_date)
 
 """
 任务调度主函数
@@ -385,7 +422,7 @@ def main():
     # 任务1.5：修复除权股票的历史K线字段
     # cn_stock_bonus 在其他基础数据任务中更新；技术指标、K线形态和策略都依赖修复后的历史K线。
     log_task_start("adjustment_kline_repair", "修复除权股票前复权K线数据")
-    adjustment_data_daily_job.main()
+    run_adjustment_kline_repair_for_daily_job()
 
     # 任务2：计算技术指标（MACD、KDJ、RSI等）
     log_task_start("calculate_indicators", "计算股票技术指标")
@@ -422,71 +459,10 @@ def main():
     print(f"日志文件：{os.path.join(log_path, 'stock_execute_job.log')}")
 
     # ==================== 验证数据写入 ====================
-    # 验证今天的数据是否真的写入数据库
-    validate_today_data()
-
-
-def validate_today_data():
-    """
-    验证今天的数据是否真的写入数据库
-    """
-    import instock.lib.database as mdb
-    from datetime import datetime, timedelta
-    
-    # 获取今天日期
-    today = datetime.now().date()
-    today_str = today.strftime('%Y-%m-%d')
-    
-    logging.info(f"🔍 开始验证 {today_str} 的数据...")
-    
-    # 验证主要数据表
-    tables_to_check = [
-        ('cn_stock_spot', '股票基础数据'),
-        ('cn_etf_spot', 'ETF基础数据'),
-        ('cn_stock_selection', '综合选股数据'),
-        ('cn_stock_pattern', 'K线形态数据'),
-    ]
-    
-    for table_name, description in tables_to_check:
-        if mdb.checkTableIsExist(table_name):
-            # 查询今天的记录数
-            sql = f"SELECT COUNT(*) as count FROM `{table_name}` WHERE `date` = '{today_str}'"
-            try:
-                df = pd.read_sql(sql=sql, con=mdb.engine())
-                record_count = df['count'].iloc[0]
-                if record_count > 0:
-                    logging.info(f"✅ {description} ({table_name}): 今天有 {record_count} 条记录")
-                else:
-                    logging.info(f"⚠️  {description} ({table_name}): 今天暂无数据（可能是非交易日或任务未完成）")
-            except Exception as e:
-                logging.error(f"❌ 查询 {description} ({table_name}) 时出错: {e}")
-        else:
-            logging.warning(f"⚠️  表 {table_name} 不存在")
-
-    # 验证策略表（如果有数据的话）
-    strategy_tables = [
-        ('cn_stock_strategy_turtle_trade', '海龟交易策略'),
-        ('cn_stock_strategy_parking_apron', '停车信号策略'),
-        ('cn_stock_strategy_backtrace_ma250', 'MA250回踩策略'),
-    ]
-    
-    for table_name, description in strategy_tables:
-        if mdb.checkTableIsExist(table_name):
-            # 查询今天的记录数
-            sql = f"SELECT COUNT(*) as count FROM `{table_name}` WHERE `date` = '{today_str}'"
-            try:
-                df = pd.read_sql(sql=sql, con=mdb.engine())
-                record_count = df['count'].iloc[0]
-                if record_count > 0:
-                    # 检查是否有收益率数据
-                    sql_rates = f"SELECT COUNT(*) as count FROM `{table_name}` WHERE `date` = '{today_str}' AND `rate_1` IS NOT NULL"
-                    df_rates = pd.read_sql(sql=sql_rates, con=mdb.engine())
-                    rates_count = df_rates['count'].iloc[0]
-                    logging.info(f"✅ {description} ({table_name}): 今天有 {record_count} 条记录，其中 {rates_count} 条有收益率数据")
-                else:
-                    logging.info(f"⚠️  {description} ({table_name}): 今天暂无数据（可能是非交易日或策略未触发）")
-            except Exception as e:
-                logging.error(f"❌ 查询 {description} ({table_name}) 时出错: {e}")
+    # 验证指定日期的数据是否真的写入数据库。
+    # data_validation_daily_job 会复用当前命令行日期参数：
+    # 无参数验证最新交易日；单日/多日/区间则验证对应日期。
+    data_validation_daily_job.main()
 
 
 def main_calculate_only():
@@ -512,7 +488,7 @@ def main_calculate_only():
     log_task_start("calculate_only_mode", "仅执行计算任务模式（跳过初始化和基础数据抓取）")
 
     # 先修复除权股票K线，确保后续并行计算读取到一致的历史价格。
-    adjustment_data_daily_job.main()
+    run_adjustment_kline_repair_for_daily_job()
     
     # ==================== 步骤3：并行执行多个任务 ====================
     # 这些任务相互独立，可以同时执行，提高效率
@@ -560,119 +536,13 @@ if __name__ == '__main__':
     import sys
     
     # 解析命令行参数
-    if '--calculate-only' in sys.argv:
+    calculate_only = '--calculate-only' in sys.argv
+    # 【关键修复】移除控制参数，避免传递给 run_template 后被误判为日期参数
+    sys.argv = [arg for arg in sys.argv if arg != '--calculate-only']
+
+    if calculate_only:
         logging.info("📝 检测到 --calculate-only 参数，执行仅计算模式")
-        # 【关键修复】移除 --calculate-only 参数，避免传递给子任务
-        sys.argv = [arg for arg in sys.argv if arg != '--calculate-only']
         main_calculate_only()
     else:
         logging.info("📝 执行完整流程模式")
         main()
-
-"""
-===========================================
-任务调度模块使用总结（给Python新手）
-===========================================
-
-1. 任务执行顺序
-   第1步：初始化数据库 ← 串行
-   第2步：抓取基础数据 ← 串行
-   第3步：抓取选股数据 ← 串行
-   第4步：并行任务 ← 并行
-      ├─ 其他基础数据
-      ├─ 计算技术指标
-      ├─ 识别K线形态
-      └─ 策略选股
-   第5步：回测验证 ← 串行
-   第6步：收盘后数据 ← 串行
-
-2. 串行 vs 并行
-   串行（Sequential）：
-   - 一个接一个执行
-   - 有依赖关系的任务必须串行
-   - 例如：必须先有数据，才能计算指标
-   
-   并行（Parallel）：
-   - 同时执行多个任务
-   - 独立的任务可以并行
-   - 利用多核CPU，提高效率
-
-3. 多线程概念
-   - 线程：程序执行的最小单位
-   - 多线程：同时运行多个线程
-   - ThreadPoolExecutor：Python的线程池管理器
-   - submit()：提交任务到线程池
-
-4. 时间估算
-   单线程顺序执行：
-   - 基础数据：2分钟
-   - 选股数据：5分钟
-   - 指标计算：10分钟
-   - 形态识别：8分钟
-   - 策略选股：5分钟
-   - 回测：3分钟
-   总计：33分钟
-   
-   多线程并行执行：
-   - 基础数据：2分钟
-   - 选股数据：5分钟
-   - 并行任务：10分钟（最长的那个）
-   - 回测：3分钟
-   总计：20分钟
-   
-   效率提升：约40%
-
-5. 运行方式
-   # 当前交易日
-   python execute_daily_job.py
-   
-   # 指定日期
-   python execute_daily_job.py 2024-01-01
-   
-   # 多个日期
-   python execute_daily_job.py 2024-01-01,2024-01-02
-   
-   # 日期区间
-   python execute_daily_job.py 2024-01-01 2024-01-10
-
-6. 日志文件
-   - 位置：instock/log/stock_execute_job.log
-   - 内容：任务开始/结束时间、错误信息
-   - 格式：时间戳 + 消息内容
-
-7. 常见问题
-   Q：为什么某些任务要串行？
-   A：因为有依赖关系，后面的任务需要前面的结果
-   
-   Q：为什么不全部并行？
-   A：并行任务会占用更多内存和CPU，要平衡
-   
-   Q：如何查看任务进度？
-   A：查看日志文件，或在终端看输出
-   
-   Q：任务失败怎么办？
-   A：查看日志文件中的错误信息，修复后重新运行
-
-8. 定时执行
-   Windows：使用任务计划程序
-   Linux：使用cron
-   Docker：容器内自动执行
-   
-   建议时间：
-   - 工作日 17:30（收盘后）
-   - 确保当天数据已发布
-
-9. Python知识点
-   - import：导入模块
-   - with语句：上下文管理器
-   - 线程池：concurrent.futures
-   - 日志：logging模块
-   - 时间：time、datetime模块
-   - __name__ == '__main__'：程序入口
-
-10. 扩展建议
-   - 添加邮件通知：任务完成/失败发邮件
-   - 添加进度显示：使用tqdm显示进度条
-   - 添加错误重试：失败自动重试3次
-   - 添加数据验证：检查数据完整性
-"""

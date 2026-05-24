@@ -15,7 +15,10 @@
 - 不影响其他正常股票
 """
 import sys
-sys.path.insert(0, 'd:/WorkProject/stock')
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT_DIR))
 
 import instock.lib.database as mdb
 import pandas as pd
