@@ -289,6 +289,7 @@ log_path = os.path.dirname(setup_job_logging())  # 日志目录，供末尾 prin
 from instock.job import init_job  # 初始化任务
 from instock.job import basic_data_other_daily_job  # 其他基础数据任务
 from instock.job import basic_data_after_close_daily_job  # 收盘后数据任务
+from instock.job import adjustment_data_daily_job  # 除权股票前复权K线修复任务
 from instock.job import indicators_data_daily_job  # 指标计算任务
 from instock.job import strategy_data_daily_job  # 策略选股任务
 from instock.job import backtest_data_daily_job  # 回测任务
@@ -380,6 +381,11 @@ def main():
     # 包括：龙虎榜明细/汇总、个股/行业/概念资金流向、分红配送、早盘抢筹、涨停原因
     log_task_start("other_basic_data", "抓取其他基础数据（龙虎榜、资金流向等）")
     basic_data_other_daily_job.main()
+
+    # 任务1.5：修复除权股票的历史K线字段
+    # cn_stock_bonus 在其他基础数据任务中更新；技术指标、K线形态和策略都依赖修复后的历史K线。
+    log_task_start("adjustment_kline_repair", "修复除权股票前复权K线数据")
+    adjustment_data_daily_job.main()
 
     # 任务2：计算技术指标（MACD、KDJ、RSI等）
     log_task_start("calculate_indicators", "计算股票技术指标")
@@ -504,6 +510,9 @@ def main_calculate_only():
     
     # 任务开始日志
     log_task_start("calculate_only_mode", "仅执行计算任务模式（跳过初始化和基础数据抓取）")
+
+    # 先修复除权股票K线，确保后续并行计算读取到一致的历史价格。
+    adjustment_data_daily_job.main()
     
     # ==================== 步骤3：并行执行多个任务 ====================
     # 这些任务相互独立，可以同时执行，提高效率
