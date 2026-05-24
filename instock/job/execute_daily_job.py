@@ -321,27 +321,18 @@ def _to_date(value):
     raise ValueError(f"Unsupported date value: {value!r}")
 
 
-def repair_adjustment_kline_for_daily_date(run_date):
+def run_adjustment_data_daily_job(run_date):
     """
-    每日总调度的除权修复包装函数。
+    每日总调度里按日期执行除权 K 线修复。
 
-    单独执行 adjustment_data_daily_job 时默认查近 30 天；
-    每日总调度只查“上一个交易日 ~ 当前运行日”，并把明确的查询窗口传给修复任务。
+    execute_daily_job 只查“上一个交易日 ~ 当前运行日”的除权股票，
+    然后直接执行 adjustment_data_daily_job.repair_ex_dividend_kline_data(start, end)。
     """
     ex_dividend_end_date = _to_date(run_date)
     ex_dividend_start_date = trd.get_previous_trade_date(ex_dividend_end_date)
-    adjustment_data_daily_job.repair_ex_dividend_kline_data(
-        ex_dividend_end_date,
-        ex_dividend_start_date=ex_dividend_start_date,
-        ex_dividend_end_date=ex_dividend_end_date,
-    )
-
-
-def run_adjustment_kline_repair_for_daily_job():
-    """
-    使用 execute_daily_job 的日期参数运行除权 K 线修复。
-    """
-    runt.run_with_args(repair_adjustment_kline_for_daily_date)
+    # 只修复最近两天的除权股票，避免一次性修复过多历史数据导致性能问题。
+    # TODO: 临时改成1天，后续要改动回来！！！！！！！！！！！！！！！！！！！
+    adjustment_data_daily_job.repair_ex_dividend_kline_data(ex_dividend_end_date, ex_dividend_end_date)
 
 """
 任务调度主函数
@@ -422,7 +413,7 @@ def main():
     # 任务1.5：修复除权股票的历史K线字段
     # cn_stock_bonus 在其他基础数据任务中更新；技术指标、K线形态和策略都依赖修复后的历史K线。
     log_task_start("adjustment_kline_repair", "修复除权股票前复权K线数据")
-    run_adjustment_kline_repair_for_daily_job()
+    runt.run_with_args(run_adjustment_data_daily_job)
 
     # 任务2：计算技术指标（MACD、KDJ、RSI等）
     log_task_start("calculate_indicators", "计算股票技术指标")
@@ -488,7 +479,8 @@ def main_calculate_only():
     log_task_start("calculate_only_mode", "仅执行计算任务模式（跳过初始化和基础数据抓取）")
 
     # 先修复除权股票K线，确保后续并行计算读取到一致的历史价格。
-    run_adjustment_kline_repair_for_daily_job()
+    log_task_start("adjustment_kline_repair", "修复除权股票前复权K线数据")
+    runt.run_with_args(run_adjustment_data_daily_job)
     
     # ==================== 步骤3：并行执行多个任务 ====================
     # 这些任务相互独立，可以同时执行，提高效率

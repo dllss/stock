@@ -1,5 +1,5 @@
 import datetime
-import importlib
+import inspect
 import unittest
 from unittest import mock
 
@@ -7,62 +7,91 @@ import pandas as pd
 
 
 class AdjustmentDataDailyJobTest(unittest.TestCase):
-    def test_invalid_ex_dividend_lookback_env_falls_back_to_default(self):
-        from instock.job import adjustment_data_daily_job as job
-
-        with mock.patch.dict("os.environ", {"INSTOCK_EX_DIVIDEND_LOOKBACK_DAYS": "bad-value"}):
-            reloaded_job = importlib.reload(job)
-
-        self.assertEqual(reloaded_job.EX_DIVIDEND_LOOKBACK_DAYS, 30)
-        importlib.reload(reloaded_job)
-
-    def test_default_ex_dividend_query_window_uses_30_days(self):
-        from instock.job import adjustment_data_daily_job as job
-
-        start_date, end_date = job.get_ex_dividend_query_window(
-            datetime.date(2023, 5, 22),
-            datetime.date(2026, 5, 21),
-        )
-
-        self.assertEqual(start_date, datetime.date(2026, 4, 21))
-        self.assertEqual(end_date, datetime.date(2026, 5, 21))
-
-    def test_repair_uses_explicit_ex_dividend_window_when_provided(self):
+    def test_repair_uses_ex_dividend_window_and_derives_repair_date(self):
         from instock.job import adjustment_data_daily_job as job
 
         with mock.patch.object(
             job,
+            "get_latest_trade_date_on_or_before",
+            return_value=datetime.date(2026, 5, 18),
+        ) as latest_trade_date, mock.patch.object(
+            job,
             "get_repair_window",
             return_value=(datetime.date(2023, 5, 22), datetime.date(2026, 5, 18)),
-        ), mock.patch.object(
-            job,
-            "get_ex_dividend_query_window",
-            side_effect=AssertionError("default lookback window should not be used"),
-        ), mock.patch.object(job, "get_ex_dividend_stocks", return_value=[]) as get_stocks:
+        ) as get_repair_window, mock.patch.object(job, "get_ex_dividend_stocks", return_value=[]) as get_stocks:
             job.repair_ex_dividend_kline_data(
+                datetime.date(2026, 5, 15),
                 datetime.date(2026, 5, 18),
-                ex_dividend_start_date=datetime.date(2026, 5, 15),
-                ex_dividend_end_date=datetime.date(2026, 5, 18),
             )
 
+        latest_trade_date.assert_called_once_with(datetime.date(2026, 5, 18))
+        get_repair_window.assert_called_once_with(datetime.date(2026, 5, 18))
         get_stocks.assert_called_once_with(datetime.date(2026, 5, 15), datetime.date(2026, 5, 18))
 
-    def test_adjustment_main_passes_explicit_window_to_run_template(self):
+    def test_repair_single_date_uses_that_date_as_ex_dividend_window(self):
         from instock.job import adjustment_data_daily_job as job
 
-        with mock.patch.object(job.runt, "run_with_args") as run_with_args:
-            job.main(
-                ex_dividend_start_date=datetime.date(2026, 5, 15),
-                ex_dividend_end_date=datetime.date(2026, 5, 18),
-            )
+        with mock.patch.object(
+            job,
+            "get_latest_trade_date_on_or_before",
+            return_value=datetime.date(2026, 5, 21),
+        ), mock.patch.object(
+            job,
+            "get_repair_window",
+            return_value=(datetime.date(2023, 5, 22), datetime.date(2026, 5, 21)),
+        ), mock.patch.object(job, "get_ex_dividend_stocks", return_value=[]) as get_stocks:
+            job.repair_ex_dividend_kline_data(datetime.date(2026, 5, 21))
 
-        run_with_args.assert_called_once_with(
-            job.repair_ex_dividend_kline_data,
-            datetime.date(2026, 5, 15),
-            datetime.date(2026, 5, 18),
+        get_stocks.assert_called_once_with(datetime.date(2026, 5, 21), datetime.date(2026, 5, 21))
+
+    def test_repair_range_end_uses_latest_trade_date_for_kline_window(self):
+        from instock.job import adjustment_data_daily_job as job
+
+        with mock.patch.object(
+            job,
+            "get_latest_trade_date_on_or_before",
+            return_value=datetime.date(2026, 5, 22),
+        ), mock.patch.object(
+            job,
+            "get_repair_window",
+            return_value=(datetime.date(2023, 5, 23), datetime.date(2026, 5, 22)),
+        ) as get_repair_window, mock.patch.object(job, "get_ex_dividend_stocks", return_value=[]) as get_stocks:
+            job.repair_ex_dividend_kline_data(datetime.date(2026, 5, 21), datetime.date(2026, 5, 24))
+
+        get_repair_window.assert_called_once_with(datetime.date(2026, 5, 22))
+        get_stocks.assert_called_once_with(datetime.date(2026, 5, 21), datetime.date(2026, 5, 24))
+
+    def test_adjustment_main_has_cli_only_signature(self):
+        from instock.job import adjustment_data_daily_job as job
+
+        self.assertEqual(list(inspect.signature(job.main).parameters), [])
+
+    def test_adjustment_main_cli_range_uses_range_as_ex_dividend_window_once(self):
+        from instock.job import adjustment_data_daily_job as job
+
+        cli_args = ["adjustment_data_daily_job.py", "2026-05-21", "2026-05-24"]
+
+        with mock.patch.object(job.sys, "argv", cli_args), \
+            mock.patch.object(job, "repair_ex_dividend_kline_data") as repair:
+            job.main()
+
+        repair.assert_called_once_with(
+            datetime.date(2026, 5, 21),
+            datetime.date(2026, 5, 24),
         )
 
-    def test_execute_daily_adjustment_passes_previous_trade_date_window(self):
+    def test_adjustment_main_cli_single_date_uses_that_date_as_ex_dividend_window(self):
+        from instock.job import adjustment_data_daily_job as job
+
+        cli_args = ["adjustment_data_daily_job.py", "2026-05-21"]
+
+        with mock.patch.object(job.sys, "argv", cli_args), \
+            mock.patch.object(job, "repair_ex_dividend_kline_data") as repair:
+            job.main()
+
+        repair.assert_called_once_with(datetime.date(2026, 5, 21))
+
+    def test_execute_daily_adjustment_passes_previous_trade_date_window_to_repair_task(self):
         from instock.job import execute_daily_job
 
         with mock.patch.object(
@@ -71,14 +100,17 @@ class AdjustmentDataDailyJobTest(unittest.TestCase):
             return_value=datetime.date(2026, 5, 15),
         ), mock.patch.object(
             execute_daily_job.adjustment_data_daily_job,
+            "main",
+            side_effect=AssertionError("execute_daily_job should call repair task directly"),
+        ), mock.patch.object(
+            execute_daily_job.adjustment_data_daily_job,
             "repair_ex_dividend_kline_data",
         ) as repair:
-            execute_daily_job.repair_adjustment_kline_for_daily_date(datetime.date(2026, 5, 18))
+            execute_daily_job.run_adjustment_data_daily_job(datetime.date(2026, 5, 18))
 
         repair.assert_called_once_with(
+            datetime.date(2026, 5, 15),
             datetime.date(2026, 5, 18),
-            ex_dividend_start_date=datetime.date(2026, 5, 15),
-            ex_dividend_end_date=datetime.date(2026, 5, 18),
         )
 
     def test_execute_daily_job_runs_explicit_window_adjustment_before_indicators(self):
@@ -94,7 +126,7 @@ class AdjustmentDataDailyJobTest(unittest.TestCase):
             mock.patch.object(execute_daily_job.cn_etf_spot_job, "main", record("etf")), \
             mock.patch.object(execute_daily_job.cn_stock_selection_job, "main", record("selection")), \
             mock.patch.object(execute_daily_job.basic_data_other_daily_job, "main", record("other")), \
-            mock.patch.object(execute_daily_job, "run_adjustment_kline_repair_for_daily_job", record("adjustment")), \
+            mock.patch.object(execute_daily_job.runt, "run_with_args", record("adjustment")), \
             mock.patch.object(execute_daily_job.indicators_data_daily_job, "main", record("indicators")), \
             mock.patch.object(execute_daily_job.klinepattern_data_daily_job, "main", record("kline")), \
             mock.patch.object(execute_daily_job.strategy_data_daily_job, "main", record("strategy")), \
@@ -103,20 +135,21 @@ class AdjustmentDataDailyJobTest(unittest.TestCase):
             mock.patch.object(execute_daily_job.data_validation_daily_job, "main", record("validate")):
             execute_daily_job.main()
 
-        self.assertLess(calls.index(("other", (), {})), calls.index(("adjustment", (), {})))
-        self.assertLess(calls.index(("adjustment", (), {})), calls.index(("indicators", (), {})))
+        adjustment_call = ("adjustment", (execute_daily_job.run_adjustment_data_daily_job,), {})
+        self.assertLess(calls.index(("other", (), {})), calls.index(adjustment_call))
+        self.assertLess(calls.index(adjustment_call), calls.index(("indicators", (), {})))
 
-    def test_calculate_only_uses_explicit_window_adjustment(self):
+    def test_calculate_only_runs_adjustment_with_run_template(self):
         from instock.job import execute_daily_job
 
-        with mock.patch.object(execute_daily_job, "run_adjustment_kline_repair_for_daily_job") as run_adjustment, \
+        with mock.patch.object(execute_daily_job.runt, "run_with_args") as run_with_args, \
             mock.patch.object(execute_daily_job.indicators_data_daily_job, "main"), \
             mock.patch.object(execute_daily_job.klinepattern_data_daily_job, "main"), \
             mock.patch.object(execute_daily_job.strategy_data_daily_job, "main"), \
             mock.patch.object(execute_daily_job.backtest_data_daily_job, "prepare"):
             execute_daily_job.main_calculate_only()
 
-        run_adjustment.assert_called_once_with()
+        run_with_args.assert_called_once_with(execute_daily_job.run_adjustment_data_daily_job)
 
     def test_normalize_qfq_hist_data_maps_only_kline_columns(self):
         from instock.job import adjustment_data_daily_job as job
@@ -192,18 +225,6 @@ class AdjustmentDataDailyJobTest(unittest.TestCase):
         self.assertEqual(start_date, datetime.date(2023, 5, 22))
         self.assertEqual(end_date, datetime.date(2026, 5, 21))
 
-    def test_get_ex_dividend_query_window_uses_recent_candidates(self):
-        from instock.job import adjustment_data_daily_job as job
-
-        start_date, end_date = job.get_ex_dividend_query_window(
-            datetime.date(2023, 5, 22),
-            datetime.date(2026, 5, 21),
-            lookback_days=30,
-        )
-
-        self.assertEqual(start_date, datetime.date(2026, 4, 21))
-        self.assertEqual(end_date, datetime.date(2026, 5, 21))
-
     def test_fetch_qfq_hist_data_bypasses_code_map_cache(self):
         from instock.job import adjustment_data_daily_job as job
 
@@ -276,7 +297,7 @@ class AdjustmentDataDailyJobTest(unittest.TestCase):
             mock.patch.object(execute_daily_job.cn_etf_spot_job, "main", record("etf")), \
             mock.patch.object(execute_daily_job.cn_stock_selection_job, "main", record("selection")), \
             mock.patch.object(execute_daily_job.basic_data_other_daily_job, "main", record("other")), \
-            mock.patch.object(execute_daily_job, "run_adjustment_kline_repair_for_daily_job", record("adjustment")), \
+            mock.patch.object(execute_daily_job.runt, "run_with_args", record("adjustment")), \
             mock.patch.object(execute_daily_job.indicators_data_daily_job, "main", record("indicators")), \
             mock.patch.object(execute_daily_job.klinepattern_data_daily_job, "main", record("kline")), \
             mock.patch.object(execute_daily_job.strategy_data_daily_job, "main", record("strategy")), \

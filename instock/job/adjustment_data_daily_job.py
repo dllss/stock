@@ -61,39 +61,6 @@ KLINE_UPDATE_COLUMNS = (
     "turnoverrate",
 )
 
-def parse_ex_dividend_lookback_days(default_days: int = 30) -> int:
-    """
-    解析除权候选扫描天数配置。
-
-    环境变量配置错误时不要让模块 import 失败；
-    回退到默认值，保证 execute_daily_job 还能继续运行。
-    """
-    raw_value = os.environ.get("INSTOCK_EX_DIVIDEND_LOOKBACK_DAYS", str(default_days))
-    try:
-        lookback_days = int(raw_value)
-    except (TypeError, ValueError):
-        logging.warning(
-            f"Invalid INSTOCK_EX_DIVIDEND_LOOKBACK_DAYS={raw_value!r}, fallback to {default_days}"
-        )
-        return default_days
-
-    if lookback_days < 0:
-        logging.warning(
-            f"INSTOCK_EX_DIVIDEND_LOOKBACK_DAYS must be non-negative: {lookback_days}, "
-            f"fallback to {default_days}"
-        )
-        return default_days
-
-    return lookback_days
-
-
-# 单独执行本任务时，默认扫描运行日期往前 30 天内发生除权除息的股票。
-# 命中股票后，实际修复的 K 线范围仍然是完整指标窗口。
-# 可通过环境变量覆盖，例如：
-# INSTOCK_EX_DIVIDEND_LOOKBACK_DAYS=0 只扫描运行当天；
-# INSTOCK_EX_DIVIDEND_LOOKBACK_DAYS=90 扫描近 90 天。
-EX_DIVIDEND_LOOKBACK_DAYS = parse_ex_dividend_lookback_days()
-
 HIST_COLUMN_MAPPING = {
     "日期": "date",
     "开盘": "open_price",
@@ -152,29 +119,6 @@ def get_repair_window(run_date) -> Tuple[datetime.date, datetime.date]:
     # 转成 date，便于后续窗口比较和接口参数格式化。
     start_date = datetime.datetime.strptime(start_date_str, "%Y%m%d").date()
     return start_date, end_date
-
-
-def get_ex_dividend_query_window(
-    repair_start_date: datetime.date,
-    end_date: datetime.date,
-    lookback_days: int = EX_DIVIDEND_LOOKBACK_DAYS,
-) -> Tuple[datetime.date, datetime.date]:
-    """
-    获取除权股票候选查询窗口。
-
-    这里的窗口只用于判断“哪些股票最近发生过除权除息”。
-    不等于实际更新 K 线数据的窗口。
-
-    设计原因：
-    - 每天只需要处理最近发生公司行为的股票，避免扫描多年除权记录导致任务过慢。
-    - 一旦股票命中候选，再用 get_repair_window 的完整历史窗口修复 K 线。
-    """
-    # 候选起点 = 运行日期 - lookback_days。
-    candidate_start_date = end_date - datetime.timedelta(days=lookback_days)
-    # 候选起点不能早于实际修复窗口起点，避免查询范围超过后续可修复范围。
-    if candidate_start_date < repair_start_date:
-        candidate_start_date = repair_start_date
-    return candidate_start_date, end_date
 
 
 def get_ex_dividend_stocks(start_date: datetime.date, end_date: datetime.date) -> List[Tuple[str, str]]:
@@ -409,27 +353,45 @@ def repair_one_stock(code: str, name: str, start_date: datetime.date, end_date: 
     return update_cn_stock_spot_kline_data(normalized_data)
 
 
-def repair_ex_dividend_kline_data(run_date, ex_dividend_start_date=None, ex_dividend_end_date=None):
+def repair_ex_dividend_kline_data(ex_dividend_start_date, ex_dividend_end_date=None):
     """
-    修复指定运行日期关联的除权股票 K 线。
+    修复指定除权查询窗口内股票的前复权 K 线。
 
-    run_template 会根据命令行参数多次调用本函数：
-    - 无参数：最新交易日。
-    - 单日：指定日期。
-    - 多日/区间：逐个交易日执行。
+    参数含义：
+    - ex_dividend_start_date：查询 cn_stock_bonus 的除权开始日期。
+    - ex_dividend_end_date：查询 cn_stock_bonus 的除权结束日期；不传时等于开始日期。
+
+    K 线修复截止日由 ex_dividend_end_date 自动推导：
+    - 如果结束日期是交易日，就修复到该日。
+    - 如果结束日期是周末/节假日，就修复到该日前最近交易日。
     """
+    # 单日调用时，只查询当天发生除权除息的股票。
+    if ex_dividend_end_date is None:
+        ex_dividend_end_date = ex_dividend_start_date
+
+    # 查询窗口统一转为 date，兼容 run_template 传入的字符串/日期对象。
+    ex_dividend_start_date = _to_date(ex_dividend_start_date)
+    ex_dividend_end_date = _to_date(ex_dividend_end_date)
+    if ex_dividend_start_date > ex_dividend_end_date:
+        raise ValueError(
+            f"ex_dividend_start_date must be <= ex_dividend_end_date: "
+            f"{ex_dividend_start_date} > {ex_dividend_end_date}"
+        )
+
+    # 区间结束日可能不是交易日；K 线只能修复到最近交易日。
+    run_date = get_latest_trade_date_on_or_before(ex_dividend_end_date)
+    if run_date < ex_dividend_start_date:
+        logging.warning(
+            f"No trade date found from {ex_dividend_start_date} to {ex_dividend_end_date}, "
+            f"skip adjustment repair"
+        )
+        return
+
     # 完整修复窗口：和后续指标计算读取历史 K 线的窗口一致。
     start_date, end_date = get_repair_window(run_date)
-    # 候选窗口：只扫描近期发生除权的股票，减少接口请求数量。
-    if ex_dividend_start_date is None and ex_dividend_end_date is None:
-        ex_dividend_start_date, ex_dividend_end_date = get_ex_dividend_query_window(start_date, end_date)
-    else:
-        if ex_dividend_start_date is None or ex_dividend_end_date is None:
-            raise ValueError("ex_dividend_start_date and ex_dividend_end_date must be provided together")
-        ex_dividend_start_date = _to_date(ex_dividend_start_date)
-        ex_dividend_end_date = _to_date(ex_dividend_end_date)
-        if ex_dividend_start_date < start_date:
-            ex_dividend_start_date = start_date
+    # 候选窗口早于修复窗口时，早于修复窗口的除权记录不影响本次要覆盖的 K 线范围。
+    if ex_dividend_start_date < start_date:
+        ex_dividend_start_date = start_date
     # 从 cn_stock_bonus 查询候选股票。
     stocks = get_ex_dividend_stocks(ex_dividend_start_date, ex_dividend_end_date)
     # 没有候选股票时，本任务正常结束。
@@ -470,7 +432,25 @@ def repair_ex_dividend_kline_data(run_date, ex_dividend_start_date=None, ex_divi
     )
 
 
-def main(ex_dividend_start_date=None, ex_dividend_end_date=None):
+def get_latest_trade_date_on_or_before(end_date: datetime.date) -> datetime.date:
+    """
+    获取不晚于 end_date 的最近交易日。
+
+    区间命令允许结束日期落在周末/节假日；K 线修复窗口需要使用真实交易日作为结束日。
+    """
+    if trd.is_trade_date(end_date):
+        return end_date
+    return trd.get_previous_trade_date(end_date)
+
+
+def parse_cli_date(value: str) -> datetime.date:
+    """
+    解析命令行 YYYY-MM-DD 日期。
+    """
+    return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def main():
     """
     脚本入口。
 
@@ -479,14 +459,19 @@ def main(ex_dividend_start_date=None, ex_dividend_end_date=None):
     python adjustment_data_daily_job.py 2026-05-20
     python adjustment_data_daily_job.py 2026-05-01 2026-05-20
     """
-    # 延迟导入任务日志工具，避免模块导入时产生任务日志。
-    from instock.job.task_utils import log_task_start
+    # 直接执行 `adjustment_data_daily_job.py start end` 时，用户传入的区间就是除权候选查询区间。
+    if len(sys.argv) == 3:
+        repair_ex_dividend_kline_data(parse_cli_date(sys.argv[1]), parse_cli_date(sys.argv[2]))
+        return
 
-    # 写入统一格式的任务开始日志。
-    log_task_start("adjustment_kline_repair", "修复除权股票前复权K线数据")
+    # 直接执行 `adjustment_data_daily_job.py date` 时，只查询该日期当天的除权股票。
+    if len(sys.argv) == 2:
+        repair_ex_dividend_kline_data(parse_cli_date(sys.argv[1]))
+        return
+
     # 将具体日期解析和交易日过滤交给项目已有运行模板。
-    # execute_daily_job 可传入明确的除权查询窗口；单独执行时不传，默认查近 30 天。
-    runt.run_with_args(repair_ex_dividend_kline_data, ex_dividend_start_date, ex_dividend_end_date)
+    # 无命令行日期时，run_template 会传入最新交易日；修复任务只查询该交易日当天的除权股票。
+    runt.run_with_args(repair_ex_dividend_kline_data)
 
 
 # 仅直接运行本文件时执行；被 execute_daily_job import 时不会自动执行。
