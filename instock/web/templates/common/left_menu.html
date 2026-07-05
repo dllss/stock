@@ -1,28 +1,28 @@
 {% block left_menu %}
 <link rel="stylesheet" href="/static/css/ace.min.css" class="ace-main-stylesheet" id="main-ace-style" />
-<link rel="stylesheet" href="/static/css/ace-skins.min.css"/>
+<link rel="stylesheet" href="/static/css/ace-skins.min.css" />
 <script src="/static/js/ace.min.js"></script>
 <script src="/static/js/ace-elements.min.js"></script>
 <script src="/static/js/ace-extra.min.js"></script>
 <script type="text/javascript">
-    try{ace.settings.loadState('sidebar')}catch(e){}
+    try { ace.settings.loadState('sidebar') } catch (e) { }
     $.extend({
-        getUrlVars: function(){
+        getUrlVars: function () {
             let vars = [], hash;
             const hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
-            for(let i = 0; i < hashes.length; i++)
-            {
+            for (let i = 0; i < hashes.length; i++) {
                 hash = hashes[i].split('=');
                 vars.push(hash[0]);
                 vars[hash[0]] = hash[1];
             }
             return vars;
         },
-        getUrlVar: function(name){
+        getUrlVar: function (name) {
             return $.getUrlVars()[name];
         }
     });
 </script>
+
 <div id="navbar" class="navbar navbar-default ace-save-state" style="display:none;">
     <div class="navbar-container ace-save-state" id="navbar-container">
         <button type="button" class="navbar-toggle menu-toggler pull-left" id="menu-toggler" data-target="#sidebar">
@@ -34,37 +34,64 @@
     </div>
 </div>
 <script type="text/javascript">
-    if('ontouchstart' in document.documentElement) document.getElementById('navbar').style.display = "block";
-    
-    // 处理左侧菜单点击事件，保留当前日期参数
-    $(document).ready(function() {
-        console.log('🔍 左侧菜单初始化开始...');
-        
-        // 获取当前URL中的date参数
-        const currentDate = $.getUrlVar('date');
-        console.log('📅 当前URL:', window.location.href);
-        console.log('📅 当前date参数:', currentDate);
-        
-        // 立即执行，不等待延迟
-        if (currentDate) {
-            console.log('✅ 检测到date参数，开始更新菜单链接...');
-            
-            // 为所有菜单链接添加该参数
+    if ('ontouchstart' in document.documentElement) document.getElementById('navbar').style.display = "block";
+
+    // 左侧菜单日期管理模块
+    // 维护一个本地变量存储当前日期，日期控件变化时更新此变量并刷新菜单链接
+    const leftMenuDate = {
+        _currentDate: null,          // 当前日期（本地变量）
+        _initialized: false,         // 是否已初始化
+
+        // 初始化：从URL读取初始日期并更新菜单链接
+        init: function () {
+            console.log('🔍 左侧菜单初始化开始...');
+            this._currentDate = $.getUrlVar('date') || null;
+            console.log('📅 当前URL:', window.location.href);
+            console.log('📅 当前date参数:', this._currentDate);
+
+            if (this._currentDate) {
+                this._refreshLinks();
+                this._initialized = true;
+                console.log('✅ 菜单链接更新完成');
+            } else {
+                console.log('⚠️  URL中没有date参数，保持原样');
+            }
+        },
+
+        // 获取当前日期
+        getDate: function () {
+            return this._currentDate;
+        },
+
+        // 更新日期并刷新菜单链接
+        setDate: function (newDate) {
+            if (!newDate || newDate === this._currentDate) return;
+            console.log('🔄 左侧菜单日期更新:', this._currentDate, '->', newDate);
+            this._currentDate = newDate;
+            if (this._initialized || this._currentDate) {
+                this._initialized = true;
+                this._refreshLinks();
+            }
+        },
+
+        // 刷新所有菜单链接（从本地变量取日期）
+        _refreshLinks: function () {
+            const self = this;
             const menuLinks = $('#sidebar a[data-table-url]');
             console.log('🔗 找到菜单链接数量:', menuLinks.length);
-            
+
             if (menuLinks.length === 0) {
-                console.error('❌ 未找到任何菜单链接！检查HTML结构');
+                console.warn('⚠️  未找到任何菜单链接！检查HTML结构');
                 return;
             }
-            
-            menuLinks.each(function(index) {
+
+            menuLinks.each(function (index) {
                 const baseUrl = $(this).data('table-url');
                 if (!baseUrl) {
                     console.warn(`⚠️  链接 ${index} 没有 data-table-url 属性`);
                     return;
                 }
-                
+
                 // 移除已有的date参数（避免重复添加）
                 let cleanUrl = baseUrl;
                 if (cleanUrl.includes('?')) {
@@ -73,24 +100,28 @@
                     const params = parts[1].split('&').filter(p => !p.startsWith('date='));
                     cleanUrl = path + (params.length > 0 ? '?' + params.join('&') : '');
                 }
-                
+
                 // 添加新的date参数
                 const separator = cleanUrl.indexOf('?') >= 0 ? '&' : '?';
-                const newHref = cleanUrl + separator + 'date=' + currentDate;
+                const newHref = cleanUrl + separator + 'date=' + self._currentDate;
                 $(this).attr('href', newHref);
-                
+
                 // 同时更新 data-table-url 属性
                 $(this).data('table-url', cleanUrl);
-                
-                if (index < 3) {  // 只打印前3个
-                    console.log(`   [${index}] ${baseUrl} → ${newHref}`);
-                }
             });
-            
-            console.log('✅ 菜单链接更新完成');
-        } else {
-            console.log('⚠️  URL中没有date参数，保持原样');
+
+            console.log('✅ 菜单链接已更新为日期:', self._currentDate);
         }
+    };
+
+    // 暴露到全局作用域，供其他页面（如日期控件）调用
+    window.updateLeftMenuDate = function (newDate) {
+        leftMenuDate.setDate(newDate);
+    };
+
+    // 页面加载时初始化
+    $(document).ready(function () {
+        leftMenuDate.init();
     });
 </script>
 <div id="sidebar" class="sidebar responsive ace-save-state navbar_fixed sidebar-fixed">
@@ -104,9 +135,9 @@
         </li>
         {% set isOpenStr = "" %}
         {% try %}
-            {% if request.uri == "/" or request.uri == "/instock/" %}
-                {% set isOpenStr = "open" %}
-            {% end %}
+        {% if request.uri == "/" or request.uri == "/instock/" %}
+        {% set isOpenStr = "open" %}
+        {% end %}
         {% except %}
         {% end %}
         <li class="{{ isOpenStr }}">
@@ -126,50 +157,51 @@
                 </li>
             </ul>
         </li>
-{% set loopType = "" %}
-{% for leftMenuTmp in leftMenu.leftMenuList %}
-    {% if leftMenuTmp.type != loopType %}
+        {% set loopType = "" %}
+        {% for leftMenuTmp in leftMenu.leftMenuList %}
+        {% if leftMenuTmp.type != loopType %}
         {% if loopType != "" %}
-            </ul>
-            </li>
-        {% end %}
-        {% set loopType = leftMenuTmp.type %}
-        {% set isOpenStr = "" %}
-        {% try %}
-            {% if web_module_data.type == leftMenuTmp.type %}
-                {% set isOpenStr = "open" %}
-            {% end %}
-        {% except %}
-        {% end %}
-        <li class="{{ isOpenStr }}">
-            <a href="#" class="dropdown-toggle">
-                <i class="menu-icon {{ leftMenuTmp.ico }}"></i>
-                <span class="menu-text">{{ leftMenuTmp.type }}</span>
-                <b class="arrow fa fa-angle-down"></b>
-            </a>
-            <b class="arrow"></b>
-            <ul class="submenu">
+    </ul>
+    </li>
     {% end %}
-                {% set isActiveStr = "" %}
-                {% try %}
-                    {% if web_module_data.name == leftMenuTmp.name %}
-                        {% set isActiveStr = "active" %}
-                    {% end %}
-                {% except %}
-                {% end %}
-                <li class="{{ isActiveStr }}">
-                    <a href="{{ leftMenuTmp.url }}" data-table-url="{{ leftMenuTmp.url }}">
-                        <i class="menu-icon fa fa-caret-right"></i>
-                        {{ leftMenuTmp.name }}
-                    </a>
-                    <b class="arrow"></b>
-                </li>
-{% end %}
-            </ul>
-        </li>
+    {% set loopType = leftMenuTmp.type %}
+    {% set isOpenStr = "" %}
+    {% try %}
+    {% if web_module_data.type == leftMenuTmp.type %}
+    {% set isOpenStr = "open" %}
+    {% end %}
+    {% except %}
+    {% end %}
+    <li class="{{ isOpenStr }}">
+        <a href="#" class="dropdown-toggle">
+            <i class="menu-icon {{ leftMenuTmp.ico }}"></i>
+            <span class="menu-text">{{ leftMenuTmp.type }}</span>
+            <b class="arrow fa fa-angle-down"></b>
+        </a>
+        <b class="arrow"></b>
+        <ul class="submenu">
+            {% end %}
+            {% set isActiveStr = "" %}
+            {% try %}
+            {% if web_module_data.name == leftMenuTmp.name %}
+            {% set isActiveStr = "active" %}
+            {% end %}
+            {% except %}
+            {% end %}
+            <li class="{{ isActiveStr }}">
+                <a href="{{ leftMenuTmp.url }}" data-table-url="{{ leftMenuTmp.url }}">
+                    <i class="menu-icon fa fa-caret-right"></i>
+                    {{ leftMenuTmp.name }}
+                </a>
+                <b class="arrow"></b>
+            </li>
+            {% end %}
+        </ul>
+    </li>
     </ul>
     <div class="sidebar-toggle sidebar-collapse" id="sidebar-collapse">
-        <i id="sidebar-toggle-icon" class="ace-icon fa fa-angle-double-left ace-save-state" data-icon1="ace-icon fa fa-angle-double-left" data-icon2="ace-icon fa fa-angle-double-right"></i>
+        <i id="sidebar-toggle-icon" class="ace-icon fa fa-angle-double-left ace-save-state"
+            data-icon1="ace-icon fa fa-angle-double-left" data-icon2="ace-icon fa fa-angle-double-right"></i>
     </div>
 </div>
 {% end %}

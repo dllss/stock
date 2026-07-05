@@ -291,7 +291,7 @@ from instock.job import basic_data_after_close_daily_job  # 收盘后数据任�
 from instock.job import adjustment_data_daily_job  # 除权股票前复权K线修复任务
 from instock.job import indicators_data_daily_job  # 指标计算任务
 from instock.job import strategy_data_daily_job  # 策略选股任务
-from instock.job import backtest_data_daily_job  # 回测任务
+from instock.backtest import backtest_data_daily_job  # 回测任务
 from instock.job import klinepattern_data_daily_job  # K线形态识别任务
 from instock.job import data_validation_daily_job  # 每日数据表验证任务
 
@@ -430,7 +430,6 @@ def main():
     # 步骤4：回测验证
     # 【重要】直接调用prepare(None)，回测所有历史待回测记录
     # 而不是通过run_with_args获取今天的日期（会导致只回测当天）
-    from instock.job import backtest_data_daily_job
     backtest_data_daily_job.prepare(None)  # None表示回测所有待回测的历史记录
 
     # 步骤5：收盘后数据（资金流向、分红配送、龙虎榜等）
@@ -498,7 +497,7 @@ def main_calculate_only():
     # 步骤4：回测验证
     # 【重要】直接调用prepare(None)，回测所有历史待回测记录
     # 而不是通过run_with_args获取今天的日期（会导致只回测当天）
-    from instock.job import backtest_data_daily_job
+    from instock.backtest import backtest_data_daily_job
     backtest_data_daily_job.prepare(None)  # None表示回测所有待回测的历史记录
 
 # ==================== 程序入口 ====================

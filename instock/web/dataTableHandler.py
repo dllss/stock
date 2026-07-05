@@ -346,8 +346,9 @@ class GetStockDataHandler(webBase.BaseHandler, ABC):
             order_columns = f",{web_module_data.order_columns}"
 
         # ==================== 步骤7: 特殊表处理 - 买入/卖出信号表 ====================
-        # 对于 cn_stock_indicators_buy/sell，需要关联查询涨跌幅和行业
-        if web_module_data.table_name in ['cn_stock_indicators_buy', 'cn_stock_indicators_sell']:
+        # 对于买入/卖出信号表和策略表，需要关联查询涨跌幅和行业
+        if web_module_data.table_name in ['cn_stock_indicators_buy', 'cn_stock_indicators_sell'] \
+                or web_module_data.table_name.startswith('cn_stock_strategy_'):
             # 构建JOIN查询，从 cn_stock_spot 获取涨跌幅和行业
             # 注意：WHERE条件中必须明确指定使用main表的date字段
             where_clause = ""

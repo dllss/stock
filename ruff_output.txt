@@ -1,0 +1,10 @@
+﻿python : error: invalid value 'text' for '--output-format <OUTPUT_FORMAT>'
+At line:1 char:164
++ ... ing]::UTF8; python -m ruff check "d:\WorkProject\stock\instock\backte ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (error: invalid ...OUTPUT_FORMAT>':String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  [possible values: concise, full, json, json-lines, junit, grouped, github, gitlab, pylint, rdjson, azure, sarif]
+
+For more information, try '--help'.

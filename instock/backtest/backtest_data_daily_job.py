@@ -54,7 +54,7 @@ sys.path.append(cpath)
 import instock.core.tablestructure as tbs  # 表结构定义
 import instock.lib.database as mdb  # 数据库操作
 import instock.lib.run_template as runt  # 任务运行模板
-import instock.core.backtest.rate_stats as rate  # 收益率计算
+import instock.backtest.rate_stats as rate  # 收益率计算
 # from instock.core.singleton_stock import stock_hist_data  # 历史数据单例（已不再使用，回测任务直接查询数据库）
 
 __author__ = 'myh '
@@ -193,20 +193,16 @@ def prepare(date=None):
             logging.warning("⚠️ 没有K线数据，回测任务终止")
             return
         
-        # 将DataFrame转换为字典格式，与原有的data_all结构兼容
-        # 键：(date, code, name)，值：DataFrame（该股票从date开始的K线数据）
+        # 将DataFrame转换为字典格式
+        # 键：(date, code)，值：DataFrame（该股票从date开始的K线数据）
+        # 只用 code 作为唯一标识，不用 name（name 可能因摘帽等原因变化）
         stocks_data = {}
         
-        # 【关键修复】按股票代码分组，为每只股票的每个待回测日期创建key
         for code, group in df_all.groupby('code'):
             if len(group) == 0:
                 continue
             
-            # 获取股票名称（从第一行数据中获取）
-            name = group.iloc[0]['name']
-            
             # 为该股票的每个不同日期创建key
-            # 这样无论哪一天的选股信号，都能找到对应的K线数据
             unique_dates = group['date'].unique()
             for date_val in unique_dates:
                 # 确保日期是字符串格式
@@ -215,8 +211,8 @@ def prepare(date=None):
                 else:
                     date_str_val = str(date_val)
                 
-                # 构造key：(日期, code, name)
-                key = (date_str_val, code, name)
+                # 构造key：(date, code)
+                key = (date_str_val, code)
                 
                 # 筛选出从该日期开始的K线数据
                 stock_kline = group[group['date'] >= date_val].sort_values('date').reset_index(drop=True)
@@ -333,11 +329,12 @@ def process(table, data_all, date, backtest_column):
 
         # 步骤7: 提取股票的(date, code, name)信息
         # TABLE_CN_STOCK_FOREIGN_KEY：外键列定义，包含date, code, name
-        subset = data[list(tbs.TABLE_CN_STOCK_FOREIGN_KEY['columns'])]
+        subset = data[list(tbs.TABLE_CN_STOCK_FOREIGN_KEY['columns'])].copy()
         
-        # 将date列转换为字符串类型
-        # astype()：类型转换
-        subset = subset.astype({'date': 'string'})
+        # 将date列统一转换为'%Y-%m-%d'字符串，与prepare()中stocks_data的key格式一致
+        subset['date'] = subset['date'].apply(
+            lambda v: v.strftime('%Y-%m-%d') if hasattr(v, 'strftime') else str(v)[:10]
+        )
         
         # 将DataFrame转换为元组列表
         # 格式：[(date, code, name), (date, code, name), ...]
@@ -346,10 +343,7 @@ def process(table, data_all, date, backtest_column):
         # 步骤8: 并行计算收益率
         logging.info(f"🚀 开始计算 {len(stocks)} 只股票的收益率...")
         
-        # 【关键修复】将date从datetime.date转换为字符串，以匹配data_all的key格式
-        date_str = str(date) if hasattr(date, 'year') else date
-        
-        results = run_check(stocks, data_all, date_str, backtest_column)
+        results = run_check(stocks, data_all, backtest_column)
         if results is None:
             # 计算失败，跳过
             logging.warning(f"⚠️ 表 {table_name} 收益率计算失败，结果为None")
@@ -403,7 +397,7 @@ dict: 计算结果字典
 - 太多：竞争激烈，反而慢
 - 40是经验值，可以根据CPU调整
 """
-def run_check(stocks, data_all, date, backtest_column, workers=40):
+def run_check(stocks, data_all, backtest_column, workers=40):
     # 步骤1: 准备存储结果的字典
     data = {}
     
@@ -418,14 +412,14 @@ def run_check(stocks, data_all, date, backtest_column, workers=40):
                 # executor.submit()：提交任务到线程池
                 # 任务：调用rate.get_rates()计算收益率
                 # 参数：
-                #   stock: (date, code, name)
-                #   data_all.get(...): 获取该股票的历史K线
+                #   stock: (date, code, name) - name 仅传给 get_rates 用于结果输出
+                #   data_all.get((date, code)): 用 (date, code) 查找K线（不用name）
                 #   backtest_column: 列名列表
                 #   len(backtest_column) - 1: 需要计算的天数
                 executor.submit(
                     rate.get_rates,  # 要执行的函数
                     stock,  # 股票信息
-                    data_all.get(stock),  # 历史K线数据，直接使用stock作为key
+                    data_all.get((stock[0], stock[1])),  # 用 (date, code) 查找K线
                     backtest_column,  # 列名
                     len(backtest_column) - 1  # 计算天数（列数-2，减去date和code）
                 ): stock 

@@ -4,6 +4,9 @@
     
     // 或者只对特定文件禁用
     "[html]": {
-        "editor.defaultFormatter": null
-    }
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "cSpell.words": [
+        "instock"
+    ]
 }

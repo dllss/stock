@@ -299,6 +299,48 @@ TABLE_CN_STOCK_BACKTEST_DATA = {'name': 'cn_stock_backtest_data', 'cn': '股票�
                                 'columns': {'rate_%s' % i: {'type': FLOAT, 'cn': '%s日收益率(%%)' % i, 'size': 115} for i in
                                             range(1, RATE_FIELDS_COUNT + 1, 1)}}
 
+TABLE_CN_BACKTEST_TRADE = {
+    'name': 'cn_backtest_trade',
+    'cn': '回测交易明细',
+    'columns': {
+        'strategy_name': {'type': VARCHAR(50, _COLLATE), 'cn': '策略名称', 'size': 100},
+        'code': {'type': VARCHAR(6, _COLLATE), 'cn': '股票代码', 'size': 60},
+        'name': {'type': VARCHAR(20, _COLLATE), 'cn': '股票名称', 'size': 70},
+        'buy_date': {'type': DATE, 'cn': '买入日期', 'size': 0},
+        'buy_price': {'type': FLOAT, 'cn': '买入价', 'size': 70},
+        'sell_date': {'type': DATE, 'cn': '卖出日期', 'size': 0},
+        'sell_price': {'type': FLOAT, 'cn': '卖出价', 'size': 70},
+        'sell_reason': {'type': VARCHAR(20, _COLLATE), 'cn': '卖出原因', 'size': 80},
+        'profit_pct': {'type': FLOAT, 'cn': '收益率(%)', 'size': 85},
+        'hold_days': {'type': SmallInteger, 'cn': '持仓天数', 'size': 70},
+        'max_profit_pct': {'type': FLOAT, 'cn': '最大浮盈(%)', 'size': 85},
+        'max_loss_pct': {'type': FLOAT, 'cn': '最大浮亏(%)', 'size': 85},
+    },
+}
+
+TABLE_CN_BACKTEST_SUMMARY = {
+    'name': 'cn_backtest_summary',
+    'cn': '回测汇总统计',
+    'columns': {
+        'strategy_name': {'type': VARCHAR(50, _COLLATE), 'cn': '策略名称', 'size': 100},
+        'run_date': {'type': DATE, 'cn': '运行日期', 'size': 0},
+        'start_date': {'type': DATE, 'cn': '回测起始日', 'size': 0},
+        'end_date': {'type': DATE, 'cn': '回测结束日', 'size': 0},
+        'total_trades': {'type': SmallInteger, 'cn': '总交易数', 'size': 70},
+        'win_trades': {'type': SmallInteger, 'cn': '盈利次数', 'size': 70},
+        'lose_trades': {'type': SmallInteger, 'cn': '亏损次数', 'size': 70},
+        'win_rate': {'type': FLOAT, 'cn': '胜率(%)', 'size': 70},
+        'avg_profit': {'type': FLOAT, 'cn': '平均收益率(%)', 'size': 85},
+        'avg_loss': {'type': FLOAT, 'cn': '平均亏损(%)', 'size': 85},
+        'total_profit': {'type': FLOAT, 'cn': '总收益率(%)', 'size': 85},
+        'max_profit': {'type': FLOAT, 'cn': '最大单笔盈利(%)', 'size': 85},
+        'max_loss': {'type': FLOAT, 'cn': '最大单笔亏损(%)', 'size': 85},
+        'avg_hold_days': {'type': FLOAT, 'cn': '平均持仓天数', 'size': 85},
+        'profit_factor': {'type': FLOAT, 'cn': '盈亏比', 'size': 70},
+        'params': {'type': VARCHAR(2000, _COLLATE), 'cn': '回测参数', 'size': 200},
+    },
+}
+
 STOCK_STATS_DATA = {'name': 'calculate_indicator', 'cn': '股票统计/指标计算助手库',
                     'columns': {'close': {'type': FLOAT, 'cn': '价格', 'size': 0},
                                 'macd': {'type': FLOAT, 'cn': 'dif', 'size': 70},

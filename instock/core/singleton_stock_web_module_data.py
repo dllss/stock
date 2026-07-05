@@ -49,25 +49,27 @@ MODULE_DESCRIPTIONS = {
     # ==================== 股票策略数据 ====================
     'cn_stock_spot_buy': '股票指标买入：\n\n综合各项指标和技术形态，筛选出具有买入机会的股票。\n\n筛选条件：\n• 技术指标发出买入信号\n• K线形态看涨\n• 资金面支持\n• 基本面良好\n\n用途：一站式选股参考',
     
-    'cn_stock_strategy_enter': '放量上涨策略：\n\n当股票成交量显著放大，同时价格出现明显上涨时触发。这种形态通常预示着主力资金开始介入，是短线买入的良机。\n\n核心要点：\n• 成交量较前几日放大50%以上\n• 价格上涨超过3%\n• 配合技术指标确认',
+    'cn_stock_strategy_enter': '放量上涨策略：\n\n当股票成交量显著放大，同时价格出现明显上涨时触发。这种形态通常预示着主力资金开始介入，是短线买入的良机。\n\n核心要点：\n• 成交量较前几日放大50%以上\n• 价格上涨超过3%\n• 配合技术指标确认\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_keep_increasing': '均线多头排列策略：\n\n当短期、中期、长期均线呈现多头排列（短>中>长）时触发。这表明股票处于上升趋势中，适合中线持有。\n\n核心要点：\n• 5日均线 > 10日均线 > 20日均线\n• 均线系统向上发散\n• 股价站稳均线之上',
+    'cn_stock_strategy_keep_increasing': '均线多头排列策略：\n\n当短期、中期、长期均线呈现多头排列（短>中>长）时触发。这表明股票处于上升趋势中，适合中线持有。\n\n核心要点：\n• 5日均线 > 10日均线 > 20日均线\n• 均线系统向上发散\n• 股价站稳均线之上\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_parking_apron': '停机坪策略：\n\n股票在上涨过程中出现短暂横盘整理，形成类似“停机坪”的形态后继续上涨。这是强势股的典型特征。\n\n核心要点：\n• 前期有明显上涨\n• 横盘整理时间较短\n• 整理期间成交量萎缩\n• 突破整理平台后继续上涨',
+    'cn_stock_strategy_parking_apron': '停机坪策略：\n\n股票在上涨过程中出现短暂横盘整理，形成类似"停机坪"的形态后继续上涨。这是强势股的典型特征。\n\n核心要点：\n• 前期有明显上涨\n• 横盘整理时间较短\n• 整理期间成交量萎缩\n• 突破整理平台后继续上涨\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_backtrace_ma250': '回踩年线策略：\n\n股价回调至250日均线（年线）附近获得支撑后反弹。年线是重要的长期支撑位，回踩不破是买入机会。\n\n核心要点：\n• 股价回落至250日均线附近\n• 在年线处获得支撑\n• 成交量萎缩后再次放大\n• 中长期投资价值较高',
+    'cn_stock_strategy_backtrace_ma250': '回踩年线策略：\n\n股价回调至250日均线（年线）附近获得支撑后反弹。年线是重要的长期支撑位，回踩不破是买入机会。\n\n核心要点：\n• 股价回落至250日均线附近\n• 在年线处获得支撑\n• 成交量萎缩后再次放大\n• 中长期投资价值较高\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_breakthrough_platform': '突破平台策略：\n\n股价在某一区间内长时间横盘整理后，突然放量突破平台高点。这通常意味着新的上涨行情即将开始。\n\n核心要点：\n• 横盘整理时间较长（至少2周）\n• 突破时成交量明显放大\n• 突破幅度超过3%\n• 突破后站稳平台上方',
+    'cn_stock_strategy_breakthrough_platform': '突破平台策略：\n\n股价在某一区间内长时间横盘整理后，突然放量突破平台高点。这通常意味着新的上涨行情即将开始。\n\n核心要点：\n• 横盘整理时间较长（至少2周）\n• 突破时成交量明显放大\n• 突破幅度超过3%\n• 突破后站稳平台上方\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_low_backtrace_increase': '低位回踩上涨策略：\n\n股票在相对低位出现回踩确认后重新上涨。这是一种稳健的买入策略，风险相对较低。\n\n核心要点：\n• 股价处于相对低位\n• 回踩确认支撑有效\n• 成交量温和放大\n• 技术指标出现底背离',
+    'cn_stock_strategy_low_backtrace_increase': '低位回踩上涨策略：\n\n股票在相对低位出现回踩确认后重新上涨。这是一种稳健的买入策略，风险相对较低。\n\n核心要点：\n• 股价处于相对低位\n• 回踩确认支撑有效\n• 成交量温和放大\n• 技术指标出现底背离\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_turtle_trade': '海龟交易策略：\n\n基于经典的海龟交易法则，当股价突破N日高点时买入。这是一种趋势跟踪策略，适合捕捉大行情。\n\n核心要点：\n• 突破20日或55日高点\n• 严格的风险控制\n• 金字塔式加仓\n• 趋势反转时止损',
+    'cn_stock_strategy_turtle_trade': '海龟交易策略：\n\n基于经典的海龟交易法则，当股价突破N日高点时买入。这是一种趋势跟踪策略，适合捕捉大行情。\n\n核心要点：\n• 突破20日或55日高点\n• 严格的风险控制\n• 金字塔式加仓\n• 趋势反转时止损\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_high_tight_flag': '高紧旗形策略：\n\n股票快速上涨后出现短暂的紧密整理，形成旗形形态。这是强势股的延续信号。\n\n核心要点：\n• 前期涨幅较大（通常>30%）\n• 整理时间短（5-10天）\n• 整理幅度小（通常<15%）\n• 成交量在整理期萎缩',
+    'cn_stock_strategy_high_tight_flag': '高紧旗形策略：\n\n股票快速上涨后出现短暂的紧密整理，形成旗形形态。这是强势股的延续信号。\n\n核心要点：\n• 前期涨幅较大（通常>30%）\n• 整理时间短（5-10天）\n• 整理幅度小（通常<15%）\n• 成交量在整理期萎缩\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_climax_limitdown': '跌停板抄底策略：\n\n股票出现恐慌性跌停后，在低位企稳反弹。这是一种逆向投资策略，风险较高但收益潜力大。\n\n核心要点：\n• 出现非理性跌停\n• 基本面未发生恶化\n• 跌停后成交量萎缩\n• 出现止跌企稳信号',
+    'cn_stock_strategy_climax_limitdown': '跌停板抄底策略：\n\n股票出现恐慌性跌停后，在低位企稳反弹。这是一种逆向投资策略，风险较高但收益潜力大。\n\n核心要点：\n• 出现非理性跌停\n• 基本面未发生恶化\n• 跌停后成交量萎缩\n• 出现止跌企稳信号\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
     
-    'cn_stock_strategy_low_atr': '低波动率策略：\n\n选择ATR（平均真实波幅）较低的股票，这类股票波动较小，适合稳健型投资者。\n\n核心要点：\n• ATR值处于历史低位\n• 股价波动幅度小\n• 适合长线持有\n• 风险控制较好'
+    'cn_stock_strategy_low_atr': '低波动率策略：\n\n选择ATR（平均真实波幅）较低的股票，这类股票波动较小，适合稳健型投资者。\n\n核心要点：\n• ATR值处于历史低位\n• 股价波动幅度小\n• 适合长线持有\n• 风险控制较好\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）',
+
+    'cn_stock_strategy_breakthrough_volume': '量能突破策略：\n\n股价突破近期高点（默认20日），配合放量确认和均线过滤，寻找强势突破股。\n\n核心要点：\n• 收盘价突破N日最高价（默认20日）\n• 可选用放量确认（成交量 > 均量 × 倍数）\n• 可选用均线过滤（收盘价在MA60之上）\n• 参数可灵活组合，过滤假突破\n\n参数配置（可修改）：\n• break_days=20：突破周期\n• use_volume=True：放量确认开关\n• vol_ratio=1.5：放量倍数\n• use_ma_filter=True：均线过滤开关\n• ma_days=60：均线周期\n\n新增功能：\n✅ 显示当日涨跌幅\n✅ 显示所处行业\n✅ 回测收益率（rate_1 ~ rate_100）'
 }
 
 
@@ -298,6 +300,16 @@ class stock_web_module_data(metaclass=singleton_type):
             # 获取策略说明
             description = MODULE_DESCRIPTIONS.get(table['name'], '')
             
+            # 策略表添加 change_rate 和 industry 的列定义（数据通过 JOIN 查询，不改表结构）
+            # 按顺序：date, code, name, change_rate, industry, rate_1~rate_100
+            columns_with_extra = {}
+            for k, v in table['columns'].items():
+                columns_with_extra[k] = v
+                if k == 'name':
+                    columns_with_extra['change_rate'] = {'cn': '当日涨跌幅(%)', 'size': 95}
+                    columns_with_extra['industry'] = {'cn': '所处行业', 'size': 100}
+            col_names = tbs.get_field_cns(columns_with_extra)
+            
             self.data_list.append(
                 wmd.web_module_data(
                     mode="query",
@@ -305,8 +317,8 @@ class stock_web_module_data(metaclass=singleton_type):
                     ico="fa fa-check-square-o",
                     name=table['cn'],
                     table_name=table['name'],
-                    columns=tuple(table['columns']),
-                    column_names=tbs.get_field_cns(table['columns']),
+                    columns=tuple(columns_with_extra),
+                    column_names=col_names,
                     primary_key=[],
                     is_realtime=False,
                     order_columns=f"(SELECT `datetime` FROM `{tbs.TABLE_CN_STOCK_ATTENTION['name']}` WHERE `code`=`{table['name']}`.`code`) AS `cdatetime`",
