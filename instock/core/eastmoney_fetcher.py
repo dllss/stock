@@ -60,8 +60,8 @@ class eastmoney_fetcher:
         self.session_start_time = time.time()  # 会话开始时间
 
         # 用户操作日志文件
-        self.action_log_file = os.path.join(self.base_dir, 'logs', 'user_actions.log')
-        # 确保logs目录存在
+        self.action_log_file = os.path.join(self.base_dir, 'log', 'user_actions.log')
+        # 确保log目录存在
         os.makedirs(os.path.dirname(self.action_log_file), exist_ok=True)
 
         # 注册退出处理钩子

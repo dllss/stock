@@ -117,12 +117,12 @@ class Portfolio:
             )
 
     def get_portfolio_value(self, price_dict: dict) -> float:
-        """计算当前总资产 = 现金 + 持仓市值"""
+        """计算当前总资产 = 现金 + pending_cash + 持仓市值"""
         position_value = 0.0
         for code, pos in self.positions.items():
             price = price_dict.get(code, pos['cost'])
             position_value += pos['shares'] * price
-        return self.cash + position_value
+        return self.cash + sum(self.pending_cash.values()) + position_value
 
     def try_buy(self, code: str, name: str, date: str, price: float) -> dict or None:
         """尝试买入，成功返回买入记录dict，失败返回None"""
@@ -158,15 +158,13 @@ class Portfolio:
             'buy_commission': commission,
         }
 
-        # 打印买入信息（显示可用现金 + 延迟到账资金）
+        # 打印买入信息
         position_value = sum(p['shares'] * p['cost'] for p in self.positions.values())
-        pending_total = sum(self.pending_cash.values())
-        total_cash = self.cash + pending_total
         logging.info(
             f'  📈 买入 {date} {code}({name}) '
             f'价格:{price:.2f} 股数:{shares} 成本:{total_cost:.0f}元 | '
-            f'持仓:{len(self.positions)}只 持仓市值:{position_value:.0f}元 '
-            f'现金:{self.cash:.0f}元(可用) + {pending_total:.0f}元(延迟) = {total_cash:.0f}元(总)'
+            f'持仓:{len(self.positions)}只 持仓成本:{position_value:.0f}元 '
+            f'现金:{self.cash:,.0f}元'
         )
 
         return {
@@ -194,21 +192,10 @@ class Portfolio:
 
         cost_total = shares * buy_price + pos['buy_commission']
         profit = total_revenue - cost_total
-        profit_pct = (price - buy_price) / buy_price * 100
+        profit_pct = profit / cost_total * 100
 
-        # T+1规则：卖出资金第二个交易日才能使用
-        # 计算下一个交易日，记录到pending_cash
-        try:
-            from datetime import datetime as dt, timedelta
-
-            d = dt.strptime(date, '%Y-%m-%d')
-            next_date = (d + timedelta(days=1)).strftime('%Y-%m-%d')
-            self.pending_cash[next_date] = (
-                self.pending_cash.get(next_date, 0) + total_revenue
-            )
-        except Exception:
-            # 如果日期解析失败，直接加到cash（降级处理）
-            self.cash += total_revenue
+        # A股规则：卖出当天资金即可用于买入（T+1仅限制提现，不限制交易）
+        self.cash += total_revenue
 
         # 计算持仓天数
         hold_days = 0
@@ -236,17 +223,15 @@ class Portfolio:
 
         self.closed_trades.append(trade_record)
 
-        # 打印卖出信息（显示可用现金 + 延迟到账资金）
+        # 打印卖出信息
         # 注意：此时self.positions还未删除当前持仓，需要排除
         position_value = sum(p['shares'] * p['cost'] for k, p in self.positions.items() if k != code)
-        pending_total = sum(self.pending_cash.values())
-        total_cash = self.cash + pending_total
         logging.info(
             f'  📉 卖出 {date} {code}({pos["name"]}) '
             f'价格:{price:.2f} 股数:{shares} '
             f'收益:{profit:+.0f}元({profit_pct:+.1f}%) 原因:{reason} | '
-            f'持仓:{len(self.positions)-1}只 持仓市值:{position_value:.0f}元 '
-            f'现金:{self.cash:.0f}元(可用) + {pending_total:.0f}元(延迟) = {total_cash:.0f}元(总)'
+            f'持仓:{len(self.positions)-1}只 持仓成本:{position_value:.0f}元 '
+            f'现金:{self.cash:,.0f}元'
         )
 
         del self.positions[code]
@@ -291,47 +276,42 @@ def simulate_portfolio(
             if t.sell_date:
                 all_trade_dates.add(t.sell_date)
 
-    # 关键修复：生成完整的交易日历
-    # 问题：T+1资金到账可能发生在没有交易的日期
-    # 例如：今天卖出，明天资金到账，但明天可能没有买入/卖出
-    # 如果明天不在sorted_dates中，update_pending_cash就不会被调用
-    #
-    # 解决方案：
-    # 1. 如果有start_date和end_date，使用完整的回测区间
-    # 2. 否则，使用交易日期范围，并扩展结束日期以容纳T+1（最多7天）
+    # 生成完整的交易日历（回测区间内所有有K线数据的日期）
     from datetime import datetime as dt, timedelta
 
+    # 收集所有K线日期
+    kline_dates = set()
+    for df in kline_dict.values():
+        for d in df['date']:
+            kline_dates.add(str(d)[:10])
+
     if start_date and end_date:
-        # 使用完整的回测区间，并扩展结束日期以容纳T+1（最多7天，考虑周末）
         range_start = start_date
-        end_dt = dt.strptime(end_date, '%Y-%m-%d')
-        range_end = (end_dt + timedelta(days=7)).strftime('%Y-%m-%d')
+        range_end = end_date
     elif all_trade_dates:
-        # 使用交易日期的最小和最大值
         range_start = min(all_trade_dates)
         range_end = max(all_trade_dates)
-        # 扩展结束日期以容纳T+1（最多7天，考虑周末）
-        end_dt = dt.strptime(range_end, '%Y-%m-%d')
-        range_end = (end_dt + timedelta(days=7)).strftime('%Y-%m-%d')
     else:
         sorted_dates = []
         range_start = None
         range_end = None
 
     if range_start and range_end:
-        # 生成日期范围（只保留工作日：周一=0 到 周五=4）
         all_dates = []
         d = dt.strptime(range_start, '%Y-%m-%d')
         end = dt.strptime(range_end, '%Y-%m-%d')
         while d <= end:
-            if d.weekday() < 5:  # 0-4 = 周一到周五
+            if d.weekday() < 5:
                 all_dates.append(d.strftime('%Y-%m-%d'))
             d += timedelta(days=1)
-        sorted_dates = sorted(set(all_dates))  # 去重并排序
+        sorted_dates = sorted(set(all_dates) & kline_dates)
     else:
         sorted_dates = []
 
     # 按日期顺序模拟
+    peak_value = initial_cash
+    max_drawdown = 0.0
+    max_drawdown_date = ''
     for date in sorted_dates:
         # 更新T+1延迟到账的资金
         portfolio.update_pending_cash(date)
@@ -343,16 +323,41 @@ def simulate_portfolio(
                     portfolio.try_sell(code, date, t.sell_price, t.sell_reason)
 
         # 再处理买入（使用Trade对象中记录的正确价格）
-        # 注意：必须先检查持仓数量，再尝试买入
-        current_positions = len(portfolio.positions)
-        for code, tl in trade_map.items():
-            if current_positions >= portfolio.max_positions:
-                break  # 已满仓，跳过买入
-            for t in tl:
-                if t.buy_date == date and code not in portfolio.positions:
-                    result = portfolio.try_buy(code, t.name, date, t.buy_price)
-                    if result:
-                        current_positions += 1  # 买入成功，更新持仓数量
+        # 注意：最后一天不买入，因为买完立刻会被强制平仓，白白损失手续费
+        if date != sorted_dates[-1]:
+            current_positions = len(portfolio.positions)
+            for code, tl in trade_map.items():
+                if current_positions >= portfolio.max_positions:
+                    break  # 已满仓，跳过买入
+                for t in tl:
+                    if t.buy_date == date and code not in portfolio.positions:
+                        result = portfolio.try_buy(code, t.name, date, t.buy_price)
+                        if result:
+                            current_positions += 1  # 买入成功，更新持仓数量
+
+        # 每日收盘后记录总资产净值（用于计算回撤）
+        price_dict = {}
+        for code in portfolio.positions:
+            if code in kline_dict:
+                df = kline_dict[code]
+                rows = df[df['date'] <= date]
+                if len(rows) > 0:
+                    price_dict[code] = rows.iloc[-1]['close']
+        total_value = portfolio.get_portfolio_value(price_dict)
+        portfolio.portfolio_history.append({
+            'date': date,
+            'cash': round(portfolio.cash, 2),
+            'position_value': round(total_value - portfolio.cash, 2),
+            'total_value': round(total_value, 2),
+        })
+
+        # 更新最大回撤
+        if total_value > peak_value:
+            peak_value = total_value
+        drawdown_pct = (total_value - peak_value) / peak_value * 100
+        if drawdown_pct < max_drawdown:
+            max_drawdown = drawdown_pct
+            max_drawdown_date = date
 
     # 回测结束，强制平仓剩余持仓
     # 注意：强制平仓日期应该是 end_date，而不是 sorted_dates[-1]
@@ -367,10 +372,15 @@ def simulate_portfolio(
     if last_date and portfolio.positions:
         logging.info(f'\n  ⚠️ 回测结束({last_date})，强制平仓 {len(portfolio.positions)} 只持仓:')
         for code in list(portfolio.positions.keys()):
-            # 使用持仓成本价作为平仓价（保守估计，避免未来函数）
-            # 注意：真实场景中应该用最后一天的开盘价或收盘价
+            # 使用最后一天的开盘价作为平仓价（与 backtest_stock 一致）
+            close_price = portfolio.positions[code]['cost']  # 兜底
+            if code in kline_dict:
+                df = kline_dict[code]
+                last_rows = df[df['date'] <= last_date]
+                if len(last_rows) > 0:
+                    close_price = last_rows.iloc[-1]['open']
             portfolio.try_sell(
-                code, last_date, portfolio.positions[code]['cost'], 'data_end'
+                code, last_date, close_price, 'data_end'
             )
 
     # 回测结束，把 pending_cash 中的所有资金转到 cash（不再遵守T+1）
@@ -405,6 +415,8 @@ def simulate_portfolio(
         f'  最终总资产:    {final_value:>12,.2f} 元\n'
         f'  总收益:        {final_value - initial_cash:>+12,.2f} 元\n'
         f'  总收益率:      {(final_value - initial_cash) / initial_cash * 100:>+7.2f}%\n'
+        f'  最大回撤:      {max_drawdown:>+7.2f}%   ({max_drawdown_date})\n'
+        f'  峰值资产:      {peak_value:>12,.2f} 元\n'
         f'  交易次数:      {n_trades:>6d}\n'
         f'  盈利次数:      {n_win:>6d}\n'
         f'  亏损次数:      {n_lose:>6d}\n'
@@ -417,12 +429,16 @@ def simulate_portfolio(
         'final_value': round(final_value, 2),
         'total_return_pct': round(total_return_pct, 2),
         'total_profit_amount': round(total_profit_amount, 2),
+        'max_drawdown_pct': round(max_drawdown, 2),
+        'max_drawdown_date': max_drawdown_date,
+        'peak_value': round(peak_value, 2),
         'n_trades': n_trades,
         'n_win': n_win,
         'n_lose': n_lose,
         'win_rate': win_rate,
         'start_date': start_date,
         'end_date': end_date,
+        'daily_values': portfolio.portfolio_history,
         'closed_trades': portfolio.closed_trades,
     }
 
@@ -504,6 +520,7 @@ DEFAULT_SELL_PARAMS = {
     'stop_loss': -0.08,
     'stop_profit': 0.20,
     'trailing_stop': -0.05,
+    'trailing_stop_activation': 0.06,
     'max_hold_days': 60,
 }
 
@@ -518,8 +535,8 @@ def _prepare_data(data: pd.DataFrame, end_idx: int) -> pd.DataFrame:
 
 # ---- 1. 海龟交易法则 ----
 def _signal_turtle_trade(data: pd.DataFrame, end_idx: int, **kwargs) -> bool:
-    """收盘价 >= 60日最高收盘价"""
-    need = 60
+    """收盘价 >= N日最高收盘价"""
+    need = kwargs.get('break_days', 60)
     if end_idx < need - 1:
         return False
     window = data.iloc[end_idx - need + 1 : end_idx + 1]
@@ -704,28 +721,32 @@ def _signal_backtrace_ma250(data: pd.DataFrame, end_idx: int, **kwargs) -> bool:
 
 # ---- 5. 均线多头 ----
 def _signal_keep_increasing(data: pd.DataFrame, end_idx: int, **kwargs) -> bool:
-    """MA30持续递增 + 月涨>20%"""
-    threshold = 30
+    """MA持续递增趋势 + 最小涨幅过滤"""
+    ma_days = kwargs.get('ma_days', 30)
+    min_increase = kwargs.get('min_increase', 0.20)
+    threshold = max(ma_days, 10)  # 至少需要 10 天数据
+
     if end_idx < threshold - 1:
         return False
 
-    # 计算MA30
+    # 计算 MA
     close_arr = data['close'].values
-    ma30_arr = np.full(len(close_arr), np.nan)
-    for i in range(29, len(close_arr)):
-        ma30_arr[i] = close_arr[i - 29 : i + 1].mean()
+    ma_arr = np.full(len(close_arr), np.nan)
+    for i in range(ma_days - 1, len(close_arr)):
+        ma_arr[i] = close_arr[i - ma_days + 1 : i + 1].mean()
 
     start = max(0, end_idx - threshold + 1)
-    ma_values = ma30_arr[start : end_idx + 1]
+    ma_values = ma_arr[start : end_idx + 1]
     if len(ma_values) < threshold or np.any(pd.isna(ma_values)):
         return False
 
     step1 = round(threshold / 3)
     step2 = round(threshold * 2 / 3)
 
+    required_multiplier = 1 + min_increase
     if (
         ma_values[0] < ma_values[step1] < ma_values[step2] < ma_values[-1]
-        and ma_values[-1] > 1.2 * ma_values[0]
+        and ma_values[-1] > required_multiplier * ma_values[0]
     ):
         return True
     return False
@@ -993,6 +1014,7 @@ def check_sell_signal(
     stop_loss: float = -0.08,
     stop_profit: float = 0.20,
     trailing_stop: float = -0.05,
+    trailing_stop_activation: float = 0.06,
     max_hold_days: int = 60,
 ) -> Tuple[bool, str]:
     """
@@ -1015,7 +1037,7 @@ def check_sell_signal(
         if max_high_since_buy > 0
         else 0
     )
-    if max_high_since_buy > buy_price * (1 + stop_profit * 0.3):  # 至少浮盈过6%
+    if max_high_since_buy > buy_price * (1 + trailing_stop_activation):  # 移动止损激活阈值
         if max_profit_from_high <= trailing_stop:
             return True, 'trailing_stop'
 
@@ -1057,12 +1079,6 @@ def backtest_stock(
     data = kline.copy()
     data = data.sort_values('date').reset_index(drop=True)
 
-    # 统一 date 格式
-    if hasattr(data['date'].iloc[0], 'strftime'):
-        data['date'] = data['date'].apply(
-            lambda x: x.strftime('%Y-%m-%d') if hasattr(x, 'strftime') else str(x)[:10]
-        )
-
     # 过滤回测时间范围
     mask = (data['date'] >= start_date) & (data['date'] <= end_date)
     data = data.loc[mask].reset_index(drop=True)
@@ -1072,6 +1088,7 @@ def backtest_stock(
 
     current_trade: Optional[Trade] = None
     max_high_since_buy: float = 0.0
+    min_low_since_buy: float = float('inf')
     hold_day_counter: int = 0
     pending_buy: bool = False  # 标记是否需要延迟一天买入
     pending_sell: bool = False  # 标记是否需要延迟一天卖出
@@ -1083,6 +1100,7 @@ def backtest_stock(
         today_date = data.iloc[i]['date']
         today_open = data.iloc[i]['open']
         today_high = data.iloc[i]['high']
+        today_low = data.iloc[i]['low']
         today_close = data.iloc[i]['close']
 
         # ========== 1. 执行待卖出订单（延迟一天）==========
@@ -1101,11 +1119,16 @@ def backtest_stock(
                 / current_trade.buy_price
                 * 100
             )
-            current_trade.max_loss_pct = current_trade.profit_pct
+            current_trade.max_loss_pct = (
+                (min_low_since_buy - current_trade.buy_price)
+                / current_trade.buy_price
+                * 100
+            )
 
             trades.append(current_trade)
             current_trade = None
             max_high_since_buy = 0.0
+            min_low_since_buy = float('inf')
             hold_day_counter = 0
             pending_sell = False
             pending_sell_reason = ''
@@ -1117,6 +1140,7 @@ def backtest_stock(
             buy_price = today_open
             current_trade = Trade(code, name, today_date, buy_price)
             max_high_since_buy = today_high
+            min_low_since_buy = today_low
             hold_day_counter = 0
             pending_buy = False
             continue  # 买入后不再检查卖出
@@ -1125,6 +1149,7 @@ def backtest_stock(
         if current_trade is not None:
             hold_day_counter += 1
             max_high_since_buy = max(max_high_since_buy, today_high)
+            min_low_since_buy = min(min_low_since_buy, today_low)
 
             # 使用今天的数据检查卖出信号（实际卖出在明天）
             should_sell, reason = check_sell_signal(
@@ -1167,7 +1192,10 @@ def backtest_stock(
             / current_trade.buy_price
             * 100
         )
-        current_trade.max_loss_pct = current_trade.profit_pct
+        current_trade.max_loss_pct = (
+            (min_low_since_buy - current_trade.buy_price)
+            / current_trade.buy_price * 100
+        )
 
         trades.append(current_trade)
         current_trade = None  # 避免重复添加
@@ -1189,7 +1217,10 @@ def backtest_stock(
             / current_trade.buy_price
             * 100
         )
-        current_trade.max_loss_pct = current_trade.profit_pct
+        current_trade.max_loss_pct = (
+            (min_low_since_buy - current_trade.buy_price)
+            / current_trade.buy_price * 100
+        ) if min_low_since_buy != float('inf') else current_trade.profit_pct
 
         trades.append(current_trade)
 
@@ -1577,6 +1608,7 @@ def print_portfolio_summary(portfolio_result: dict[str, Any]):
         f'  最终资产:      {final:>12,.2f} 元',
         f'  总收益:        {ret_amt:>+12,.2f} 元',
         f'  总收益率:      {ret_pct:>+7.2f}%',
+        f'  最大回撤:      {portfolio_result.get("max_drawdown_pct", 0):>+7.2f}%',
         f'  交易次数:      {n_trades:>6d}',
         f'  盈利次数:      {n_win:>6d}',
         f'  亏损次数:      {n_lose:>6d}',

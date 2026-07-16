@@ -27,6 +27,9 @@
   # 运行指定几个策略对比
   python backtest_strategy_job.py compare turtle_trade,keep_increasing,parking_apron
 
+  # 参数优化（支持多策略逗号分隔）
+  python backtest_strategy_job.py optimize:turtle_trade,keep_increasing
+
   # 无参数默认运行量能突破
   python backtest_strategy_job.py
 """
@@ -58,8 +61,10 @@ from instock.backtest.backtest_runner import (  # noqa: E402
 )
 from instock.backtest.optimizer import (  # noqa: E402
     run_optimization,
+    run_two_phase_optimization,
+    run_random_optimization,
     print_optimization_results,
-    find_best_params,
+    STRATEGY_PARAM_GRIDS,
 )
 
 __author__ = 'myh '
@@ -111,7 +116,10 @@ def load_kline_data(start_date: str, end_date: str) -> dict[str, pd.DataFrame]:
         total_codes = df['code'].nunique()
         grouped = df.groupby('code')
         for i, (code, group) in enumerate(grouped):
-            kline_dict[code] = group.sort_values('date').reset_index(drop=True)
+            group = group.sort_values('date').reset_index(drop=True)
+            # 统一 date 为字符串，避免 pandas datetime.date vs str 比较报错
+            group['date'] = group['date'].astype(str).str[:10]
+            kline_dict[code] = group
             if (i + 1) % 500 == 0 or (i + 1) == total_codes:
                 logging.info(f'  📦 分组进度: {i + 1}/{total_codes} 只股票')
 
@@ -262,16 +270,17 @@ def run_compare(
 
     # 打印模拟账户对比
     if portfolio_results:
-        logging.info('\n' + '=' * 60)
+        logging.info('\n' + '=' * 75)
         logging.info('💰 模拟账户收益对比 (初始资金: 1,000,000 元)')
-        logging.info('=' * 60)
-        logging.info(f"{'策略':<20} {'最终资产':>15} {'收益率':>10} {'交易数':>8}")
-        logging.info('-' * 60)
+        logging.info('=' * 75)
+        logging.info(f"{'策略':<20} {'最终资产':>12} {'收益率':>8} {'最大回撤':>8} {'交易数':>6}")
+        logging.info('-' * 75)
         for sid, pr in portfolio_results.items():
             config = STRATEGY_CONFIGS[sid]
             strategy_name = config['name']
-            logging.info(f"{strategy_name:<20} {pr['final_value']:>15,.2f} {pr['total_return_pct']:>9.2f}% {pr['n_trades']:>8}")
-        logging.info('=' * 60)
+            dd = pr.get('max_drawdown_pct', 0)
+            logging.info(f"{strategy_name:<20} {pr['final_value']:>12,.0f} {pr['total_return_pct']:>7.2f}% {dd:>7.2f}% {pr['n_trades']:>6}")
+        logging.info('=' * 75)
 
 
 # ==================== 参数优化 ====================
@@ -283,6 +292,9 @@ def run_optimize(
     end_date: str,
     strategy_id: str = 'breakthrough_volume',
     target_return: float = 20.0,
+    mode: str = 'two_phase',
+    n_iter: int = 300,
+    sample_size: int = 500,
 ):
     """
     运行参数优化，寻找最优参数组合
@@ -292,30 +304,72 @@ def run_optimize(
         start_date/end_date: 回测区间
         strategy_id: 策略ID
         target_return: 目标收益率（%），默认20%
+        mode: 优化模式
+            - 'two_phase': 两阶段优化（默认，先卖后策略，N+M 而非 N×M）
+            - 'random':    随机搜索（快速摸底，约5-50分钟）
+            - 'grid':      完整网格搜索（最慢但最准确）
+        n_iter: 随机搜索迭代次数（仅 random 模式有效）
+        sample_size: 抽样股票数（0=全量，建议200-500，减少75-95%计算量）
     """
+    strategy_param_grid = STRATEGY_PARAM_GRIDS.get(strategy_id)
+
     logging.info(f"\n{'=' * 70}")
     logging.info(f"🎯 参数优化: {STRATEGY_CONFIGS[strategy_id]['name']}")
     logging.info(f"🎯 目标收益率: {target_return}%")
+    logging.info(f"🎯 优化模式: {mode}")
+    if sample_size:
+        logging.info(f"🎯 抽样股票: {sample_size} 只（全量 {len(kline_dict)} 只）")
     logging.info(f"{'=' * 70}")
 
-    # 运行参数扫描
-    results = run_optimization(
-        kline_dict, start_date, end_date,
-        strategy_id=strategy_id,
-        top_n=20,
-    )
+    if mode == 'two_phase':
+        results = run_two_phase_optimization(
+            kline_dict, start_date, end_date,
+            strategy_id=strategy_id,
+            strategy_param_grid=strategy_param_grid,
+            top_n=20,
+            sample_size=sample_size if sample_size else None,
+        )
+    elif mode == 'random':
+        results = run_random_optimization(
+            kline_dict, start_date, end_date,
+            strategy_id=strategy_id,
+            n_iter=n_iter,
+            strategy_param_grid=strategy_param_grid,
+            top_n=20,
+            sample_size=sample_size if sample_size else None,
+        )
+    else:
+        # 完整网格搜索
+        results = run_optimization(
+            kline_dict, start_date, end_date,
+            strategy_id=strategy_id,
+            strategy_param_grid=strategy_param_grid,
+            top_n=20,
+            sample_size=sample_size if sample_size else None,
+        )
 
     # 打印结果
     print_optimization_results(results)
 
-    # 查找达到目标收益率的参数
-    best = find_best_params(
-        kline_dict, start_date, end_date,
-        strategy_id=strategy_id,
-        target_return_pct=target_return,
-    )
+    # 从已有结果中找最佳参数（不再重复回测）
+    if results:
+        # 尝试找达到目标收益率的组合
+        best = None
+        for r in results:
+            if r['total_return_pct'] >= target_return:
+                best = r
+                logging.info(
+                    f"\n🎯 找到达到目标收益率({target_return}%)的参数组合: "
+                    f"收益率={r['total_return_pct']:.2f}%, 排名={r['rank']}"
+                )
+                break
+        if best is None:
+            best = results[0]
+            logging.info(
+                f"\n⚠️ 未找到达到目标收益率({target_return}%)的参数组合，返回最佳组合: "
+                f"收益率={best['total_return_pct']:.2f}%"
+            )
 
-    if best:
         logging.info(f"\n{'=' * 70}")
         logging.info(f"🏆 推荐参数组合 (排名 {best.get('rank', 1)})")
         logging.info(f"{'=' * 70}")
@@ -327,6 +381,8 @@ def run_optimize(
         if best.get('strategy_params'):
             logging.info(f"  策略参数: {best['strategy_params']}")
         logging.info(f"{'=' * 70}")
+    else:
+        best = {}
 
     return results, best
 
@@ -375,7 +431,15 @@ def main(strategy_spec: str | None = None, start_date: str | None = None, end_da
         log_filename = f"多策略对比_{timestamp}.log"
     else:
         # 参数优化等其他模式
-        log_filename = f"回测_{timestamp}.log"
+        if strategy_spec.startswith('optimize:'):
+            strat_ids = [s.strip() for s in strategy_spec.replace('optimize:', '').split(',') if s.strip()]
+        else:
+            strat_ids = ['breakthrough_volume']
+        if len(strat_ids) == 1:
+            strat_name = STRATEGY_CONFIGS.get(strat_ids[0], {}).get('name', strat_ids[0])
+            log_filename = f"优化_{strat_name}_{timestamp}.log"
+        else:
+            log_filename = f"优化_多策略_{timestamp}.log"
     
     # 配置日志
     from instock.lib.logger_config import setup_job_logging
@@ -407,16 +471,22 @@ def main(strategy_spec: str | None = None, start_date: str | None = None, end_da
             logging.error(f'  ❌ 没有有效的策略ID: {ids_str}')
             logging.info(f'  可用策略: {", ".join(STRATEGY_CONFIGS.keys())}')
     elif strategy_spec.startswith('optimize'):
-        # 参数优化
+        # 参数优化（支持逗号分隔多策略）
         if strategy_spec == 'optimize':
-            strategy_id = 'breakthrough_volume'  # 默认优化量能突破
+            strategy_ids = ['breakthrough_volume']
         else:
-            strategy_id = strategy_spec.replace('optimize:', '').strip()
-            if strategy_id not in STRATEGY_CONFIGS:
-                logging.error(f'  ❌ 未知策略: {strategy_id}')
-                logging.info(f'  可用策略: {", ".join(STRATEGY_CONFIGS.keys())}')
-                return
-        _ = run_optimize(kline_dict, start_date, end_date, strategy_id)
+            ids_str = strategy_spec.replace('optimize:', '')
+            strategy_ids = [s.strip() for s in ids_str.split(',') if s.strip()]
+        valid_ids = [sid for sid in strategy_ids if sid in STRATEGY_CONFIGS]
+        invalid_ids = [sid for sid in strategy_ids if sid not in STRATEGY_CONFIGS]
+        if invalid_ids:
+            logging.warning(f'  ⚠️ 跳过未知策略: {", ".join(invalid_ids)}')
+            logging.info(f'  可用策略: {", ".join(STRATEGY_CONFIGS.keys())}')
+        if not valid_ids:
+            logging.error('  ❌ 没有有效的策略ID')
+            return
+        for strategy_id in valid_ids:
+            _ = run_optimize(kline_dict, start_date, end_date, strategy_id)
     else:
         # 单个策略
         run_single_strategy(kline_dict, start_date, end_date, strategy_spec)
