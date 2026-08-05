@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qqq-tqqq-dual-core-strategy"
+version = "1.0.0"
+description = "QQQ/TQQQ 双核状态机策略：回测引擎 + 实盘跟踪 + HTML 报告"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.4", "black>=24.0"]
+
+[tool.ruff]
+# 就近配置：本文件覆盖上级 ruff.toml，仅作用于本子项目
+target-version = "py310"
+line-length = 100
+include = ["*.py"]
+extend-exclude = ["base/", "data/cache/", "OUTPUT/"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle 错误
+    "W",    # pycodestyle 警告
+    "F",    # pyflakes（未定义名/未使用等）
+    "I",    # isort 导入排序
+    "B",    # flake8-bugbear 常见 bug 模式
+    "UP",   # pyupgrade 现代化语法
+    "SIM",  # flake8-simplify
+    "C4",   # flake8-comprehensions
+]
+ignore = [
+    "E501",  # 行长度由 formatter(black) 负责，ruff 不重复报错
+    "B008",  # 函数调用默认参数（pandas/策略代码常见，非 FastAPI 场景）
+    "SIM105", # 冗余 try/except 容忍（数据抓取需容错）
+    "UP031",  # % 格式化（日志/HTML 生成中大量使用，可读性佳，不强制改 f-string）
+    "SIM102", # 嵌套 if 合并为 and（风格可选，避免大改）
+    "SIM108", # if-else 改三元（风格可选）
+    "B905",   # zip 加 strict=（运行时长度一致，可选）
+    "B009",   # getattr 常量属性（scripts 调试用，安全）
+    "F541",   # f-string 无占位符（个别调试行，无害）
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 第三方复刻基准（TypeScript 移植参考，不纳入规范约束）
+"base/*" = ["ALL"]
+# 生成的报告产物与缓存
+"OUTPUT/*" = ["ALL"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+include = '\.pyi?$'
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

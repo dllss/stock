@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$title</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+       margin: 0; background: #f5f6f8; color: #222; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 28px 0 12px; border-left: 4px solid #2563eb; padding-left: 10px; }
+.sub { color: #888; font-size: 13px; margin-bottom: 8px; }
+.cards { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.card { flex: 1 1 140px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+        padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.card-name { font-size: 12px; color: #888; }
+.card-val { font-size: 22px; font-weight: 700; margin-top: 6px; }
+.card.pos .card-val { color: #16a34a; }
+.card.neg .card-val { color: #dc2626; }
+.tbl { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px;
+       overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: right; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.tbl th { background: #f8fafc; color: #555; font-weight: 600; }
+.tbl td:first-child, .tbl th:first-child { text-align: left; white-space: nowrap; min-width: 100px; }
+.tbl tbody tr:hover { background: #f9fbff; }
+.chart { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px;
+         box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.scroll { max-height: 420px; overflow: auto; background: #fff; border-radius: 8px; }
+.note { color: #888; font-size: 12px; margin-top: 6px; }
+pre.live { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 16px 18px;
+           font-family: "Cascadia Code", Consolas, "Microsoft YaHei", monospace;
+           font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+
+/* ===== 明日操作思维导图动画 ===== */
+.mindmap-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+               padding: 16px; margin: 16px 0; box-shadow: 0 1px 2px rgba(0,0,0,.04); overflow-x: auto; }
+.mindmap-wrap h3 { font-size: 15px; margin: 0 0 10px; color: #334155; }
+.mindmap-tip { color: #888; font-size: 12px; margin: 8px 0 0; }
+.mm-svg { display: block; }
+.mm-node, .mm-link { opacity: 0; animation: mmFade 0.5s ease forwards; }
+.mm-link { fill: none; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 600; stroke-dashoffset: 600;
+           animation-name: mmGrow; }
+@keyframes mmFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mmGrow { from { stroke-dashoffset: 600; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
+/* 节点块配色（按层级） */
+.mm-rect { stroke-width: 1.5; }
+.mm-rect-0 { fill: #eff6ff; stroke: #2563eb; }
+.mm-rect-1 { fill: #f0fdf4; stroke: #16a34a; }
+.mm-rect-2 { fill: #fff7ed; stroke: #ea580c; }
+.mm-rect-3 { fill: #fef2f2; stroke: #dc2626; }
+.mm-title { font-size: 13px; font-weight: 700; fill: #1e293b; }
+.mm-cond { font-size: 10.5px; fill: #b45309; }
+.mm-act { font-size: 10.5px; fill: #15803d; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .mm-node, .mm-link { animation: none; opacity: 1; }
+  .mm-link { stroke-dashoffset: 0; }
+}
+</style></head>
+<body><div class="wrap">
+<h1>$title</h1>
+<div class="sub">区间 $sd ~ $ed | 初始资金 $init_cap | 生成于 $run_ts</div>
+$cards
+<h2>策略对比</h2>
+$compare
+<h2>净值曲线（归一化到初始资金）</h2>
+<div class="chart">$svg</div>
+<div class="note">纵轴为净值倍数(x)，横轴为交易日；蓝=双核策略，绿=全仓QQQ，红=全仓TQQQ。</div>
+$livenote
+<h2>状态分布</h2>
+$state
+$mindmap
+$live
+<h2>每日净值明细</h2>
+<div class="scroll">$detail</div>
+<div class="note">数据来源：回测引擎逐日模拟，复权口径 hfq。「真实价市值」= 现金 + 份额×真实价（分红再投派实盘对账用，精确公式：real = cash + (hfq净值 − cash) / 复权因子）。完整调仓记录见同目录 .csv。</div>
+</div></body></html>
