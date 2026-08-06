@@ -8,6 +8,7 @@
 import os
 import sys
 import time
+from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
@@ -85,37 +86,72 @@ def _cache_path(ticker: str) -> str:
     return os.path.join(S.CACHE_DIR, f"{ticker}_{adj}.csv")
 
 
-def load_cached(ticker: str) -> pd.DataFrame:
+def _meta_path(ticker: str) -> str:
+    adj = S.ADJUST or "hfq"
+    return os.path.join(S.CACHE_DIR, f"{ticker}_{adj}.meta.json")
+
+
+def load_cached(ticker: str):
+    """返回 (df, cached_at: datetime|None)。cached_at 为缓存写入的北京时间。"""
     p = _cache_path(ticker)
     if os.path.exists(p):
-        return pd.read_csv(p, parse_dates=["date"])
-    return pd.DataFrame()
+        df = pd.read_csv(p, parse_dates=["date"])
+        cached_at = None
+        mp = _meta_path(ticker)
+        if os.path.exists(mp):
+            try:
+                import json
+                with open(mp, "r", encoding="utf-8") as f:
+                    cached_at = pd.to_datetime(json.load(f).get("cached_at"))
+            except Exception:
+                cached_at = None
+        return df, cached_at
+    return pd.DataFrame(), None
 
 
 def save_cache(ticker: str, df: pd.DataFrame):
     os.makedirs(S.CACHE_DIR, exist_ok=True)
     df.to_csv(_cache_path(ticker), index=False)
+    # 记录写入时间（北京时间），用于最后一天新鲜度校验
+    try:
+        import json
+        with open(_meta_path(ticker), "w", encoding="utf-8") as f:
+            json.dump({"cached_at": (datetime.utcnow() + timedelta(hours=8)).isoformat()}, f)
+    except Exception:
+        pass
+
+
+def _now_bj():
+    """当前北京时间（naive datetime）。"""
+    return datetime.utcnow() + timedelta(hours=8)
+
+
+def _close_time(end) -> "datetime":
+    """
+    美股 D 日 K 线的收盘定稿时刻（北京时间）。
+    美股盘中实时 K 线的 hfq 字段不乘复权因子，要等收盘后才会定稿。
+    定稿时刻 = 北京时间 (D+1) 日 04:00。
+    """
+    end_dt = pd.to_datetime(end)
+    return (end_dt + timedelta(days=1)).replace(hour=4, minute=0, second=0, microsecond=0)
 
 
 def _safe_end(end):
     """
-    美股收盘保护：避免在盘中（北京时间 < 04:00）抓到"今日"未定稿的 K 线。
+    美股收盘保护：避免抓到"今日"未定稿的 K 线。
 
     东方财富对当日盘中实时 K 线的 hfq(后复权) 字段不乘复权因子，
     会直接返回前复权/真实市价，导致回测误判暴跌。
-    因此：若 end 为"今天"且当前北京时间尚未到 04:00（美股未收盘），
-    自动把补抓终点退回为昨天，等收盘后再抓今日定稿数据。
+    美股 D 日 K 线要等到北京时间 D+1 日 04:00 收盘后才定稿。
+    因此：若 end 落在"尚未收盘定稿"的日期（now < end+1日04:00），
+    自动把补抓终点退回为 end-1，等收盘后再抓定稿数据。
 
     返回 (end_safe, adjusted: bool)，adjusted=True 表示做了回退。
     """
-    from datetime import datetime, timezone, timedelta
-
     end_dt = pd.to_datetime(end)
-    now_bj = datetime.now(timezone.utc) + timedelta(hours=8)  # 北京时间
-    today_bj = now_bj.date()
-    # 美股常规收盘 = 北京时间当日 04:00；未到则今日 K 线尚未定稿
-    market_closed = now_bj.hour >= 4
-    if end_dt.date() == today_bj and not market_closed:
+    now_bj = _now_bj()
+    # end 对应美股交易日 D 的 K 线，定稿时刻 = 北京时间 (D+1) 日 04:00
+    if now_bj < _close_time(end_dt):
         yesterday = (end_dt - timedelta(days=1)).strftime("%Y-%m-%d")
         return yesterday, True
     return end, False
@@ -125,29 +161,51 @@ def fetch_and_merge(tickers, start, end) -> pd.DataFrame:
     """
     抓取多个 ticker 并合并为宽表，列名 {TICKER}_Close 等。
     带本地缓存：先读缓存，不足部分补抓。
-    含美股收盘保护：盘中不抓"今日"未定稿 K 线（见 _safe_end）。
+    含美股收盘保护：盘中不抓"今日"未定稿 K 线（见 _safe_end）；
+    并对缓存"最后一天"做新鲜度校验——若该行是在定稿前盘中抓的脏值，
+    强制重新抓取覆盖，避免复权口径不一致导致的误判暴跌。
     """
     end_safe, end_adjusted = _safe_end(end)
     if end_adjusted:
         print(
-            f"[SAFE] 当前北京时间未到 04:00（美股未收盘），今日 K 线未定稿，"
-            f"补抓终点回退为 {end_safe}（避免盘中脏数据）"
+            f"[SAFE] 今日(={end_safe} 次日) K 线尚未收盘定稿，补抓终点回退为 {end_safe}"
+            f"（避免盘中脏数据，北京时间次日 04:00 后再跑可抓定稿值）"
         )
     end = end_safe
     frames = {}
     for tk in tickers:
-        cached = load_cached(tk)
+        cached, cached_at = load_cached(tk)
         if not cached.empty:
-            # 缓存内区间足够则直接用，否则补抓
+            # 缓存内区间足够则考虑复用，否则补抓
             cached_end = cached["date"].max()
             if cached_end >= pd.to_datetime(end):
-                # 命中缓存但必须按 end 截断，避免返回超出 end 的未来数据（前视偏差）
-                frames[tk] = cached[cached["date"] <= pd.to_datetime(end)].reset_index(drop=True)
-                print(
-                    f"[CACHE] {tk} 命中缓存，截断至 {pd.to_datetime(end).date()} (共 {len(frames[tk])} 条)"
-                )
-                continue
-            print(f"[CACHE] {tk} 缓存截止 {cached_end.date()} 不足，补抓")
+                # 新鲜度校验：缓存最后一行 == end 时，若写入时间早于该日定稿时刻，
+                # 说明是盘中抓的脏值（hfq 未乘复权因子），必须重抓最后一天。
+                last_day_dirty = False
+                if cached_end.normalize() == pd.to_datetime(end).normalize():
+                    if cached_at is None:
+                        # 无 meta 记录写入时间，无法证明最后一天是定稿后抓的可靠值，保守重抓
+                        last_day_dirty = True
+                        print(
+                            f"[STALE] {tk} 缓存最后一天 {pd.to_datetime(end).date()} 无写入时间记录，"
+                            f"无法确认新鲜度，重抓覆盖以排除盘中脏值"
+                        )
+                    elif cached_at < _close_time(end):
+                        last_day_dirty = True
+                        print(
+                            f"[STALE] {tk} 缓存最后一天 {pd.to_datetime(end).date()} 写入于 "
+                            f"{cached_at}（早于收盘定稿 {_close_time(end)}），判定为盘中脏值，重抓覆盖"
+                        )
+                if not last_day_dirty:
+                    # 命中缓存但必须按 end 截断，避免返回超出 end 的未来数据（前视偏差）
+                    frames[tk] = cached[cached["date"] <= pd.to_datetime(end)].reset_index(drop=True)
+                    print(
+                        f"[CACHE] {tk} 命中缓存，截断至 {pd.to_datetime(end).date()} (共 {len(frames[tk])} 条)"
+                    )
+                    continue
+                # 脏值：剔除缓存最后一天，补抓覆盖（保留更早的缓存行）
+                cached = cached[cached["date"] < pd.to_datetime(end)].reset_index(drop=True)
+                print(f"[CACHE] {tk} 剔除脏值最后一天，保留至 {cached['date'].max().date()} 后补抓")
         print(f"[EASTMONEY] 下载 {tk} (复权={S.ADJUST}) ...")
         fresh = fetch_ticker(tk, start, end, adjust=S.ADJUST)
         if fresh.empty:

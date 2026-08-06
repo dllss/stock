@@ -1,8 +1,8 @@
 {
-    "DELAY_MIN": 1,
-    "DELAY_MAX": 5,
-    "RETRY_DELAY_MIN": 5,
-    "RETRY_DELAY_MAX": 8,
+    "DELAY_MIN": 2,
+    "DELAY_MAX": 9,
+    "RETRY_DELAY_MIN": 2,
+    "RETRY_DELAY_MAX": 5,
     "SPECIAL_REQUEST_DELAY_MIN": 12,
     "SPECIAL_REQUEST_DELAY_MAX": 18
 }

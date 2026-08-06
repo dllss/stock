@@ -30,16 +30,43 @@ import instock.lib.run_template as runt
 
 
 MAIN_TABLES_TO_CHECK = (
+    # 基础行情
     ("cn_stock_spot", "股票基础数据"),
     ("cn_etf_spot", "ETF基础数据"),
     ("cn_stock_selection", "综合选股数据"),
+    # 形态与指标
     ("cn_stock_pattern", "K线形态数据"),
+    ("cn_stock_indicators", "技术指标数据"),
+    ("cn_stock_indicators_buy", "买入信号数据"),
+    ("cn_stock_indicators_sell", "卖出信号数据"),
+    # 资金流向
+    ("cn_stock_fund_flow", "个股资金流向"),
+    ("cn_stock_fund_flow_industry", "行业资金流向"),
+    ("cn_stock_fund_flow_concept", "概念资金流向"),
+    # 龙虎榜与分红
+    ("cn_stock_lhb", "龙虎榜明细"),
+    ("cn_stock_top", "龙虎榜汇总"),
+    ("cn_stock_bonus", "分红配送"),
+    # 其他基础数据
+    ("cn_stock_spot_buy", "基本面选股"),
+    ("cn_stock_chip_race_open", "早盘抢筹"),
+    ("cn_stock_limitup_reason", "涨停原因"),
+    # 收盘后数据
+    ("cn_stock_blocktrade", "大宗交易"),
+    ("cn_stock_chip_race_end", "尾盘抢筹"),
 )
 
 STRATEGY_TABLES_TO_CHECK = (
+    ("cn_stock_strategy_enter", "放量上涨策略"),
     ("cn_stock_strategy_turtle_trade", "海龟交易策略"),
-    ("cn_stock_strategy_parking_apron", "停车信号策略"),
-    ("cn_stock_strategy_backtrace_ma250", "MA250回踩策略"),
+    ("cn_stock_strategy_climax_limitdown", "放量跌停策略"),
+    ("cn_stock_strategy_low_atr", "低ATR成长策略"),
+    ("cn_stock_strategy_backtrace_ma250", "回踩年线策略"),
+    ("cn_stock_strategy_breakthrough_platform", "突破平台策略"),
+    ("cn_stock_strategy_parking_apron", "停机坪策略"),
+    ("cn_stock_strategy_low_backtrace_increase", "无大幅回撤策略"),
+    ("cn_stock_strategy_keep_increasing", "均线多头策略"),
+    ("cn_stock_strategy_high_tight_flag", "高而窄的旗形策略"),
 )
 
 ALLOWED_TABLE_NAMES = {table_name for table_name, _ in MAIN_TABLES_TO_CHECK + STRATEGY_TABLES_TO_CHECK}

@@ -165,3 +165,13 @@ cache/
 log/
 test/
 doc/
+
+# us-stock 子项目（美股双核策略）特有的数据/产物忽略
+us-stock/**/*.csv
+us-stock/**/*.xlsx
+us-stock/**/*.db
+us-stock/**/*.sqlite
+us-stock/**/config.py
+us-stock/**/temp/
+us-stock/**/tmp/
+us-stock/qqq_tqqq_dual_core_strategy/output

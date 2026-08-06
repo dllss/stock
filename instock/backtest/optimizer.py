@@ -44,6 +44,18 @@ STRATEGY_PARAM_GRIDS = {
         'ma_days': [10, 20, 30, 60],
         'min_increase': [0.10, 0.15, 0.20],
     },
+    # ETF 择时策略参数网格
+    'dual_momentum': {
+        'lookback_days': [126, 189, 252, 378],  # 6/9/12/18个月
+    },
+    'bollinger_reversion': {
+        'bb_period': [10, 20, 30],      # 布林带周期
+        'bb_std': [1.5, 2.0, 2.5],      # 标准差倍数
+        'rsi_threshold': [25, 30, 35],  # RSI超卖阈值
+    },
+    'low_absorption': {
+        'min_signals': [1, 2],          # 触发买入所需的最小共振信号数
+    },
 }
 
 

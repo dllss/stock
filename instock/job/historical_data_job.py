@@ -76,11 +76,11 @@ def get_stock_list_for_date(date: datetime.date, sample_size: int = None) -> pd.
         if mdb.checkTableIsExist(table_name):
             # 根据 sample_size 构建 SQL
             if sample_size is None:
-                # 不限制数量，获取全部
-                sql = f"SELECT `code`, `name` FROM `{table_name}`"
+                # 不限制数量，获取全部（去重，避免同一只股票因多天数据重复出现）
+                sql = f"SELECT DISTINCT `code`, MIN(`name`) as `name` FROM `{table_name}` GROUP BY `code`"
             else:
                 # 限制数量
-                sql = f"SELECT `code`, `name` FROM `{table_name}` LIMIT {sample_size}"
+                sql = f"SELECT DISTINCT `code`, MIN(`name`) as `name` FROM `{table_name}` GROUP BY `code` LIMIT {sample_size}"
             
             result_tuple = mdb.executeSqlFetch(sql)
             

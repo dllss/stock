@@ -46,7 +46,8 @@ _strategy_names = {k: v['name'] for k, v in STRATEGY_CONFIGS.items()}
 DEFAULT_STRATEGY = 'keep_increasing'
 DEFAULT_START = '2026-01-01'
 DEFAULT_END = '2026-07-01'
-DEFAULT_LOG_FILE = 'verify_params.log'
+_LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log')
+DEFAULT_LOG_FILE = os.path.join(_LOG_DIR, 'verify_params.log')
 
 
 def build_parser():
@@ -80,6 +81,10 @@ def build_parser():
                    help='初始资金（默认: 100万）')
     p.add_argument('--max-positions', type=int, default=10,
                    help='最大持仓数（默认: 10）')
+    p.add_argument('--n-workers', type=int, default=None,
+                   help='并行进程数（默认: CPU核心数-1，Windows下遇到内存不足可设小值）')
+    p.add_argument('--strategy-params', default='',
+                   help='覆盖策略参数，格式: key1=val1,key2=val2（如 ma_days=60,min_increase=0.1）')
     p.add_argument('--log', default=DEFAULT_LOG_FILE,
                    help=f'日志文件路径（默认: {DEFAULT_LOG_FILE}）')
     p.add_argument('--list', action='store_true', help='列出所有可用策略')
@@ -116,20 +121,58 @@ if __name__ == '__main__':
         'max_hold_days': args.max_hold_days,
     }
 
+    # 解析策略参数覆盖（在 logging 之前先解析好）
+    strategy_params_override = {}
+    if args.strategy_params:
+        for kv in args.strategy_params.split(','):
+            kv = kv.strip()
+            if '=' not in kv:
+                continue
+            k, v = kv.split('=', 1)
+            k, v = k.strip(), v.strip()
+            try:
+                if '.' in v or 'e' in v.lower():
+                    v = float(v)
+                else:
+                    v = int(v)
+            except ValueError:
+                pass
+            strategy_params_override[k] = v
+
+    # 裸文件名自动落到 instock/log/ 目录
+    log_path = args.log
+    if not os.path.dirname(log_path):
+        os.makedirs(_LOG_DIR, exist_ok=True)
+        log_path = os.path.join(_LOG_DIR, log_path)
+
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler(args.log, encoding='utf-8'),
+            logging.FileHandler(log_path, encoding='utf-8', mode='w'),
         ],
     )
 
+    # 将 stderr 也重定向到日志文件，捕获子进程崩溃等未进入 logging 的错误
+    class _StderrToLog:
+        def write(self, text):
+            if text.strip():
+                logging.error(text.rstrip('\n'))
+        def flush(self):
+            pass
+    sys.stderr = _StderrToLog()
+
+    # 应用策略参数覆盖
+    if strategy_params_override:
+        orig = STRATEGY_CONFIGS[strategy_id].get('params', {}).copy()
+        STRATEGY_CONFIGS[strategy_id]['params'] = {**orig, **strategy_params_override}
+
     logging.info('=' * 60)
     logging.info(f'🔬 验证: {strategy_name} ({strategy_id}) | {start_date} ~ {end_date}')
-    sell_str = ' '.join(f'{k}={v}' for k, v in sell_params.items())
-    logging.info(f'📋 卖出参数: {sell_str}')
+    logging.info(f'📋 买入参数: {STRATEGY_CONFIGS[strategy_id]["params"]}')
+    logging.info(f'📋 卖出参数: {sell_params}')
     logging.info('=' * 60)
 
     kline_dict = load_kline_data(start_date, end_date)
@@ -137,7 +180,7 @@ if __name__ == '__main__':
         logging.error('❌ 无K线数据')
         sys.exit(1)
 
-    trades = run_backtest(kline_dict, start_date, end_date, strategy_id, sell_params)
+    trades = run_backtest(kline_dict, start_date, end_date, strategy_id, sell_params, n_workers=args.n_workers)
     summary = summarize(trades, strategy_name, start_date, end_date)
     print_summary(summary)
     print_trades(trades)

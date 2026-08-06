@@ -269,11 +269,9 @@
             maxWidth: widthConfig.max,
             width: widthConfig.default,
             // 如果是代码列，添加超链接
-            cellRenderer: col.value === 'code' ? codeCellRenderer : (isChangeRateField ? changeRateCellRenderer : undefined),
-            // 如果是日期字段，格式化日期
-            valueFormatter: isDateField ? dateFormatter : undefined,
-            // 如果是收益率字段，格式化数字
-            valueFormatter: isRateField ? numberFormatter : (isDateField ? dateFormatter : undefined),
+            cellRenderer: col.value === 'code' ? codeCellRenderer : (isChangeRateField || isRateField ? changeRateCellRenderer : undefined),
+            // 如果是日期字段，格式化日期；收益率字段由 cellRenderer 处理，不再用 valueFormatter
+            valueFormatter: isRateField ? undefined : (isDateField ? dateFormatter : undefined),
             // 表头超过6个字符时使用允许换行的样式类
             headerClass: headerLength > 6 ? 'ag-header-cell-wrap' : 'ag-header-cell-nowarp',
             // 启用 tooltip 显示完整内容
@@ -318,13 +316,14 @@
 
 
 
-    // 股票代码单元格渲染器 - 跳转到百度财经
+    // 代码单元格渲染器 - 跳转到百度财经（ETF 用 /etf/ 路径，股票用 /stock/ 路径）
     function codeCellRenderer(params) {
         const code = params.value;
         if (!code) return '';
 
-        // 跳转到百度财经个股页面
-        const baiduFinanceUrl = `https://finance.baidu.com/stock/ab-${code}`;
+        // ETF 代码以 1 或 5 开头，使用 /etf/ 路径；普通股票使用 /stock/ 路径
+        const isETF = code.startsWith('1') || code.startsWith('5');
+        const baiduFinanceUrl = `https://finance.baidu.com/${isETF ? 'etf' : 'stock'}/ab-${code}`;
 
         return `<a href="${baiduFinanceUrl}"
                  target="_blank"
@@ -345,7 +344,7 @@
         return numValue.toFixed(2);
     }
 
-    // 涨跌幅单元格渲染器 - 正数红色，负数绿色
+    // 涨跌幅/收益率单元格渲染器 - 正数红色，负数绿色
     function changeRateCellRenderer(params) {
         const value = params.value;
         if (value === null || value === undefined || value === '') return '';
@@ -364,7 +363,7 @@
             color = '#52c41a';  // 绿色
         }
 
-        return `<span style="color: ${color}; font-weight: 600;">${sign}${value}</span>`;
+        return `<span style="color: ${color}; font-weight: 600;">${sign}${numValue.toFixed(2)}</span>`;
     }
 
     // 日期格式化器 - 处理各种日期格式

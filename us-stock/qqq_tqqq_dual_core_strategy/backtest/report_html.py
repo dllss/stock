@@ -73,6 +73,7 @@ def _build_svg(port_dual: pd.DataFrame, bh_qqq: dict, bh_tqqq: dict):
     span = (max_val - min_val) or 1.0
 
     W, H = 900, 360
+    legend_h = 30  # 顶部空白行，用于放置图例标签（坐标图尺寸保持不变，整体下移到其下方）
     pad_l, pad_r, pad_t, pad_b = 60, 20, 20, 40
     plot_w = W - pad_l - pad_r
     plot_h = H - pad_t - pad_b
@@ -110,20 +111,26 @@ def _build_svg(port_dual: pd.DataFrame, bh_qqq: dict, bh_tqqq: dict):
     if tqqq:
         lines.append(path(tqqq, colors["TQQQ"]))
 
+    # 图例：放在顶部空白行（legend_h 内），不压在坐标图上方
     legend = []
-    lx = pad_l + 10
+    lx = pad_l
+    ly = legend_h / 2 - 6
     for name, col in colors.items():
-        legend.append('<rect x="%d" y="%d" width="12" height="12" fill="%s"/>' % (lx, 8, col))
+        legend.append('<rect x="%d" y="%.1f" width="10" height="10" fill="%s"/>' % (lx, ly + 1, col))
         legend.append(
-            '<text x="%d" y="%d" fill="#333" font-size="12">%s</text>' % (lx + 16, 18, name)
+            '<text x="%d" y="%.1f" fill="#333" font-size="10">%s</text>'
+            % (lx + 14, ly + 9, name)
         )
-        lx += 90
+        lx += 80
 
     svg = (
         '<svg viewBox="0 0 %d %d" width="100%%" preserveAspectRatio="xMidYMid meet" '
-        'xmlns="http://www.w3.org/2000/svg">' % (W, H)
+        'xmlns="http://www.w3.org/2000/svg">' % (W, H + legend_h)
+        # 绘图主内容整体下移 legend_h，坐标图尺寸/比例完全不变
+        + '<g transform="translate(0,%d)">' % legend_h
         + "".join(grid)
         + "".join(lines)
+        + "</g>"
         + "".join(legend)
         + "</svg>"
     )
@@ -218,7 +225,10 @@ def _detail_table(port: pd.DataFrame):
         "real_value": "真实价市值",
         "ret": "累计收益",
     }
-    head = "".join("<th>%s</th>" % _esc(head_label.get(c, c)) for c in cols)
+    head = "".join(
+        "<th%s>%s</th>" % (' class="cw"' if c not in ("date", "state") else "", _esc(head_label.get(c, c)))
+        for c in cols
+    )
     rows = []
     for _, r in port[cols].iterrows():
         vals = []
@@ -237,7 +247,11 @@ def _detail_table(port: pd.DataFrame):
                     vals.append(_money(float(v)) if c == "portfolio_value" else _fmt(float(v)))
             else:
                 vals.append(_fmt(float(v)))
-        rows.append("<tr>" + "".join("<td>%s</td>" % v for v in vals) + "</tr>")
+        cells = "".join(
+            "<td%s>%s</td>" % (' class="cw"' if c not in ("date", "state") else "", v)
+            for c, v in zip(cols, vals)
+        )
+        rows.append("<tr>" + cells + "</tr>")
     return "<table class='tbl'><thead><tr>%s</tr></thead><tbody>%s</tbody></table>" % (
         head,
         "".join(rows),
@@ -317,187 +331,228 @@ def _parse_mindmap(live_text):
     m = re.search(r"当前状态:\s*(\w+)", text)
     root_state = m.group(1) if m else "NORMAL"
 
-    # 主节点：行首 "• 名称"，子节点：前导空格 + "其中 ..."
+    # 节点行格式（来自 --live 输出）：
+    #   主节点:  "  - 逃顶 TOP_ESCAPE"            (行首 "- "，无 "其中")
+    #   子节点:  "  -   其中 回撤>-10%%"          (行内含 "其中"，缩进更深)
+    # 价能条件/动作 挂到当前子节点（cur_sub），无子节点时挂到当前主节点（cur_main）。
     lines = seg.splitlines()
-    root = {"state": root_state, "cond": "当前持仓状态", "action": "", "children": []}
+    # 根节点的「当前动作」来自 [次日切换地图] 之前的独立行：
+    #   "当前状态: NORMAL  ->  当前动作: 持有 QQQ+TQQQ (各45%, 留10%现金)"
+    act_m = re.search(r"当前动作:\s*(.+)", text)
+    root_action = act_m.group(1).strip() if act_m else ""
+    root = {"state": root_state, "cond": "", "action": root_action, "children": []}
     cur_main = None
     cur_sub = None  # 当前子节点（挂在 cur_main 下）
 
+    def translate_states(text):
+        # 把条件/动作文本里的英文状态名（如 BEAR_CASH）翻译为中文（BEAR_CASH(熊市空仓)），
+        # 避免在思维导图里只显示裸英文。STATE_CN 的 key 均为独立大写 token，不会误伤 MA200 等。
+        for k, v in STATE_CN.items():
+            if k in text:
+                text = text.replace(k, v)
+        return text
+
     def new_node(label):
-        st = label
-        # 提取状态名（去掉 "逃顶 "/"跌破 MA200 -> 风险区" 等前缀词）
-        mm = re.search(r"([A-Z_]+)", label)
-        state_key = mm.group(1) if mm else label
-        return {"state": state_key, "label": label.strip(), "cond": "", "action": "", "children": []}
+        # 节点标题直接用清洗后的可读标签：
+        # 主节点如「跌破 MA200 -> 风险区」、子节点如「回撤>-10%」（去掉「其中」层级前缀）。
+        # 不再用正则抓英文状态名（会从 MA200 误抓 MA），中文描述本身即最佳标题。
+        name = re.sub(r"^其中\s*", "", label.strip())
+        return {"state": name, "label": name, "cond": "", "action": "", "cond_note": "", "children": []}
+
+    def attach(node):
+        # 子节点挂到当前主节点下；主节点挂到 root 下
+        if cur_main is not None and node.get("_is_sub"):
+            cur_main["children"].append(node)
+        else:
+            root["children"].append(node)
 
     for ln in lines:
         s = ln.rstrip()
         if not s.strip():
             continue
         stripped = s.lstrip()
-        if stripped.startswith("•"):
-            after = stripped[1:].lstrip()
-            if after.startswith("其中"):  # 子状态（回落分档），挂在当前主节点下
-                node = new_node(after)
-                if cur_main is not None:
-                    cur_main["children"].append(node)
-                else:
-                    root["children"].append(node)
+        if stripped.startswith("-"):  # 节点行（主/子）
+            # stripped[1:] 是 "-" 之后的内容，保留 title 自身的前导缩进（lstrip 会丢失缩进，故用 title_content 判断）
+            title_content = stripped[1:]
+            after = title_content.lstrip()
+            # 跳过分隔线（纯 "-"/"=" 等）和空内容
+            if not after or set(after) <= set("-="):
+                continue
+            # 按 title 自身缩进判断层级：日志固定为 "  - <title>"，"- " 之间恒有 1 空格，
+            # 故 title 自身前导缩进 = (title_content 长度 - after 长度) - 1。
+            # 子节点（"  -> BEAR_CASH" / "  -> ZONE_XXX"）title 自带 2 空格缩进 → is_sub=True；
+            # 主节点（"逃顶 TOP_ESCAPE" / "跌破 MA200 -> 风险区" 等）title 无缩进 → 恒为 0 → is_sub=False。
+            title_indent = (len(title_content) - len(after)) - 1
+            is_sub = title_indent > 0
+            node = new_node(after)
+            node["_is_sub"] = is_sub
+            attach(node)
+            if is_sub:
                 cur_sub = node
-            else:  # 主状态节点
-                node = new_node(after)
-                root["children"].append(node)
+                # 子节点归属当前主节点；若前面没有主节点则退化为 root 子节点
+                if cur_main is None:
+                    cur_main = node
+            else:
                 cur_main = node
                 cur_sub = None
-        elif "其中" in stripped and stripped.startswith("其中"):
-            node = new_node(stripped)
-            if cur_main is not None:
-                cur_main["children"].append(node)
-            else:
-                root["children"].append(node)
-            cur_sub = node
         elif "价能条件" in s:
             val = s.split(":", 1)[1].strip() if ":" in s else s
             target = cur_sub if cur_sub is not None else cur_main
             if target is not None:
-                target["cond"] = val
-        elif "动作" in s and ":" in s:
+                target["cond"] = translate_states(val)
+        elif "条件说明" in s:
+            val = s.split(":", 1)[1].strip() if ":" in s else s
+            target = cur_sub if cur_sub is not None else cur_main
+            if target is not None:
+                target["cond_note"] = val
+        elif "附加条件" in s:
+            val = s.split(":", 1)[1].strip() if ":" in s else s
+            target = cur_sub if cur_sub is not None else cur_main
+            if target is not None:
+                # 量能等附加条件合并到条件行（与价能条件用「；」连接）
+                target["cond"] = (target.get("cond") or "") + ("；" if target.get("cond") else "") + "附加: " + translate_states(val)
+        elif "执行动作" in s and ":" in s or ("动作" in s and ":" in s):
             val = s.split(":", 1)[1].strip()
             target = cur_sub if cur_sub is not None else cur_main
             if target is not None:
-                target["action"] = val
+                target["action"] = translate_states(val)
     return root
 
 
-def _build_mindmap(root):
-    """将思维导图树渲染为内联 SVG（根在左，分支向右逐级展开），带 CSS 动画。"""
-    if root is None:
-        return ""
-
-    NODE_W, NODE_H = 240, 46
-    GAP_Y = 16
-    LEVEL_X = [40, 320, 600, 880]  # 各层级 x 起点
-
-    # 计算布局：先展平为带 depth 的节点列表
-    flat = []  # (node, depth, parent_screen_y)
-
-    def node_height(node):
-        lines = 1 + (1 if node.get("cond") else 0) + (1 if node.get("action") else 0)
-        return 30 + lines * 16 + GAP_Y
-
-    def subtree_height(node):
-        if not node["children"]:
-            return node_height(node)
-        return sum(subtree_height(c) for c in node["children"])
-
-    total_h = max(NODE_H + GAP_Y, subtree_height(root))
-
-    # 分配坐标
-    def layout(node, depth, y_top):
-        x = LEVEL_X[min(depth, len(LEVEL_X) - 1)]
-        h = subtree_height(node)
-        cy = y_top + h / 2
-        node["_x"] = x
-        node["_y"] = cy
-        node["_cx"] = x + NODE_W
-        flat.append((node, depth))
-        yy = y_top
-        for c in node["children"]:
-            layout(c, depth + 1, yy)
-            yy += subtree_height(c)
-        return node
-
-    layout(root, 0, 10)
-
-    H = total_h + 20
-    W = LEVEL_X[-1] + NODE_W + 20
-
-    # 按层级排序，用于动画 delay
-    nodes_svg = []
-    links_svg = []
+def _tree_to_d3(root):
+    """将 _parse_mindmap 的树转为 d3.hierarchy 可用的 JSON（节点含 title/cond/action）。"""
 
     def cn(name):
         return STATE_CN.get(name, name)
 
-    for node, depth in flat:
-        x, cy = node["_x"], node["_y"]
-        title = cn(node.get("state", ""))
-        cond = node.get("cond", "") or ""
-        action = node.get("action", "") or ""
-        # 节点动态高度：有条件和动作时加高，三行显示
-        lines = 1 + (1 if cond else 0) + (1 if action else 0)
-        nh = 30 + lines * 16
-        # 节点块（带类用于动画，delay 按 depth）
-        rect_y = cy - nh / 2
-        nodes_svg.append(
-            '<g class="mm-node mm-d%d" style="animation-delay:%ds">'
-            '<rect x="%d" y="%.1f" width="%d" height="%d" rx="8" '
-            'class="mm-rect mm-rect-%d"/>'
-            '<text x="%d" y="%.1f" class="mm-title">%s</text>'
-            % (
-                depth,
-                depth * 0.35,
-                x,
-                rect_y,
-                NODE_W,
-                nh,
-                min(depth, 3),
-                x + 10,
-                rect_y + 18,
-                _esc(title),
-            )
-        )
-        yy = rect_y + 34
-        if cond:
-            nodes_svg.append(
-                '<text x="%d" y="%.1f" class="mm-cond">条件 %s</text>'
-                % (x + 10, yy, _esc(cond[:34] + ("…" if len(cond) > 34 else "")))
-            )
-            yy += 16
-        if action:
-            nodes_svg.append(
-                '<text x="%d" y="%.1f" class="mm-act">动作 %s</text>'
-                % (x + 10, yy, _esc(action[:34] + ("…" if len(action) > 34 else "")))
-            )
-        nodes_svg.append("</g>")
-        node["_cx"] = x + NODE_W  # 连线起点用右边缘
-        # 连线到子节点（生长动画）
-        for c in node["children"]:
-            x1 = node["_cx"]
-            y1 = cy
-            x2 = c["_x"]
-            y2 = c["_y"]
-            mx = (x1 + x2) / 2
-            links_svg.append(
-                '<path class="mm-link mm-d%d" style="animation-delay:%.2fs" '
-                'd="M%.1f,%.1f C%.1f,%.1f %.1f,%.1f %.1f,%.1f"/>'
-                % (
-                    depth + 1,
-                    (depth + 1) * 0.35,
-                    x1,
-                    y1,
-                    mx,
-                    y1,
-                    mx,
-                    y2,
-                    x2,
-                    y2,
-                )
-            )
+    def conv(node):
+        return {
+            "name": cn(node.get("state", "")),
+            "cond": node.get("cond", "") or "",
+            "action": node.get("action", "") or "",
+            "cond_note": node.get("cond_note", "") or "",
+            "children": [conv(c) for c in node.get("children", [])],
+        }
+
+    return conv(root)
+
+
+def _build_mindmap(root):
+    """用 D3 (tree layout) 渲染思维导图：根在左，分支向右逐层展开，支持缩放/拖动。
+
+    输出：挂载 <svg> 容器 + 内联渲染脚本（数据以 JSON 注入）。
+    d3 库由本页通过 CDN (jsDelivr) 引用 d3@7。
+    """
+    if root is None:
+        return ""
+
+    data = _tree_to_d3(root)
+    import json
+
+    payload = json.dumps(data, ensure_ascii=False)
 
     svg = (
-        '<svg viewBox="0 0 %d %d" width="100%%" preserveAspectRatio="xMidYMid meet" '
-        'xmlns="http://www.w3.org/2000/svg" class="mm-svg">' % (W, H)
-        + "".join(links_svg)
-        + "".join(nodes_svg)
-        + "</svg>"
-    )
-    return (
         '<div class="mindmap-wrap"><h3>明日操作思维导图（状态切换地图）</h3>'
-        + svg
-        + '<p class="mindmap-tip">动画展示「当前状态 → 次日可能切换的目标状态」；'
-        "完整价能条件与操作指令见下方原文。</p></div>"
-    )
+        '<div id="mm-container" class="mm-container"></div>'
+        '<p class="mindmap-tip">「当前状态 → 次日可能切换的目标状态」思维导图；'
+        "完整价能条件与操作指令见下方原文。</p>"
+        '<script id="mm-data" type="application/json">%s</script>'
+        '<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>'
+        '<script>\n'
+        "(function(){\n"
+        "  const data = JSON.parse(document.getElementById('mm-data').textContent || '{}');\n"
+        "  const dx = 140;           // 同层节点垂直间距\n"
+        "  const gap = 100;          // 节点间的水平空白\n"
+        "  const nodeW = d => (d.depth === 0 ? 300 : (d.depth >= 2 ? 600 : 460));  // 孙节点宽 +20%\n"
+        "  const root = d3.hierarchy(data);\n"
+        "  // 用 d3.tree 算垂直位置，再按层级自定义水平 x（左边缘），避免加宽后重叠\n"
+        "  d3.tree().nodeSize([dx, 1])(root);\n"
+        "  root.each(d => { d.y = d.depth === 0 ? 0 : d.parent.y + nodeW(d.parent) + gap; });\n"
+        "  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;\n"
+        "  root.each(d => { if (d.x > x1) x1 = d.x; if (d.x < x0) x0 = d.x;\n"
+        "                    if (d.y > y1) y1 = d.y; if (d.y < y0) y0 = d.y; });\n"
+        "  const colorByDepth = ['#2563eb','#16a34a','#ea580c','#dc2626','#7c3aed'];\n"
+        "  // 预计算每个节点的文本行与卡片高度（供布局高度与绘制复用）\n"
+        "  const lh = 22, pad = 10;\n"
+        "  root.descendants().forEach(d => {\n"
+        "    // 思维导图卡片不展示「(含义: X，后复权: Y)」后缀（日志文本块照常展示）\n"
+        "    const stripHfq = s => s.replace(/\\s*\\(含义:[^)]*\\)/g, '');\n"
+        "    const lines = [d.data.name];\n"
+        "    if (d.data.cond_note) lines.push('条件说明 ' + d.data.cond_note);\n"
+        "    if (d.data.cond) {\n"
+        "      const parts = d.data.cond.split('；附加: ');\n"
+        "      lines.push('条件 ' + stripHfq(parts[0]));\n"
+        "      if (parts.length > 1) lines.push('附加 ' + stripHfq(parts[1]));\n"
+        "    }\n"
+    "    if (d.data.action) lines.push((d.depth === 0 ? '当前动作 ' : '执行动作 ') + d.data.action);\n"
+    "    d._lines = lines;\n"
+    "    d._h = lines.length * lh + pad * 2;\n"
+    "    // 不可达检测：价能条件出现「左界 <= ... < 右界」且左界数值 > 右界数值（区间为空）\n"
+    "    d._unreachable = false;\n"
+    "    if (d.data.cond) {\n"
+    "      const m = d.data.cond.match(/([\\d.]+)\\s*(?:\\([^)]*\\))?\\s*<=\\s*[^<]*?<\\s*([\\d.]+)/);\n"
+    "      if (m && parseFloat(m[1]) > parseFloat(m[2])) d._unreachable = true;\n"
+    "    }\n"
+        "  });\n"
+        "  const maxHalf = root.descendants().reduce((m,d)=>Math.max(m, d._h/2), 0);\n"
+        "  // 内部固定坐标系：内容自然宽高 + 留白（含卡片半高，避免上下裁切），svg 用 viewBox 由 CSS width:100% 等比缩放\n"
+        "  const padX = 40, padY = 30;\n"
+        "  const contentH = (x1 - x0) + maxHalf * 2 + padY * 2;\n"
+        "  const contentW = (y1 - y0) + nodeW(root.descendants().sort((a,b)=>b.depth-a.depth)[0]) + padX * 2;\n"
+        "  const vbH = contentH;\n"
+        "  const svg = d3.select('#mm-container').append('svg')\n"
+        "      .attr('class', 'mm-svg')\n"
+        "      .attr('viewBox', `0 0 ${contentW} ${vbH}`)\n"
+        "      .attr('preserveAspectRatio', 'xMidYMid meet');\n"
+        "  // 纵向平移：最上节点中心 x0 映射到 (padY + maxHalf)，使内容垂直居中且不裁切\n"
+        "  const g = svg.append('g')\n"
+        "      .attr('transform', `translate(${padX - y0},${padY + maxHalf - x0})`);\n"
+        "  // 连线：父节点从右边缘出发，子节点到左边缘（避免从中心穿出）\n"
+        "  g.selectAll('path.mm-link').data(root.links()).join('path')\n"
+        "    .attr('class','mm-link')\n"
+        "    .attr('d', d => {\n"
+        "      const sx = d.source.y + nodeW(d.source);  // 父右边缘\n"
+        "      const sy = d.source.x;\n"
+        "      const tx = d.target.y;                    // 子左边缘\n"
+        "      const ty = d.target.x;\n"
+        "      const mx = (sx + tx) / 2;\n"
+        "      return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;\n"
+        "    });\n"
+        "  // 节点组\n"
+        "  const node = g.selectAll('g.mm-node').data(root.descendants()).join('g')\n"
+        "    .attr('class','mm-node')\n"
+        "    .attr('transform', d => `translate(${d.y},${d.x})`);\n"
+        "  // 节点卡片（复用预计算的 _lines / _h）\n"
+        "  node.each(function(d){\n"
+        "    const g0 = d3.select(this);\n"
+        "    const lines = d._lines, w = nodeW(d), h = d._h;\n"
+    "    const col = colorByDepth[Math.min(d.depth, colorByDepth.length-1)];\n"
+    "    g0.append('rect').attr('class','mm-rect')\n"
+    "      .attr('x', 0).attr('y', -h/2).attr('width', w).attr('height', h)\n"
+    "      .attr('rx', 8)\n"
+    "      .style('fill', d._unreachable ? '#fee2e2' : '#fff')\n"
+    "      .style('stroke', d._unreachable ? '#dc2626' : col)\n"
+    "      .style('stroke-width', d._unreachable ? 2 : 1.5);\n"
+    "    if (d._unreachable) {\n"
+    "      g0.append('text').attr('x', w - 8).attr('y', -h/2 + pad + lh*0.75)\n"
+    "        .attr('text-anchor', 'end').attr('class', 'mm-unreach')\n"
+    "        .text('⚠ 不可达');\n"
+    "    }\n"
+        "    lines.forEach((t, i) => {\n"
+        "      let cls = 'mm-title';\n"
+        "      if (i > 0) {\n"
+        "        if (t.startsWith('附加')) cls = 'mm-extra';\n"
+        "        else if (t.startsWith('条件')) cls = 'mm-cond';\n"
+        "        else cls = 'mm-act';\n"
+        "      }\n"
+        "      g0.append('text').attr('x', 12).attr('y', -h/2 + pad + lh*(i+0.75))\n"
+        "        .attr('class', cls).text(t);\n"
+        "    });\n"
+        "  });\n"
+        "})();\n"
+        "</script></div>"
+    ).replace("%s", payload)
+    return svg
 
 
 def build_report(

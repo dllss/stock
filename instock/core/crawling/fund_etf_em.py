@@ -504,10 +504,10 @@ def _fund_etf_code_id_map_em() -> dict:
     
     # ==================== 步骤1: 设置API参数 ====================
     url = "http://88.push2.eastmoney.com/api/qt/clist/get"
-    
-    params = {
-        "pn": "1",              # 页码
-        "pz": "5000",           # 每页5000条（一次性获取所有ETF）
+    page_size = 100  # API 实际每页上限
+
+    base_params = {
+        "pz": str(page_size),
         "po": "1",              # 排序方向
         "np": "1",              # 不分页标识
         "ut": "bd1d9ddb04089700cf9c27f6f7426281",  # 用户token
@@ -521,23 +521,45 @@ def _fund_etf_code_id_map_em() -> dict:
         "fields": "f12,f13",
         "_": "1672806290972",   # 时间戳
     }
-    
-    # ==================== 步骤2: 发送HTTP请求 ====================
-    r = fetcher.make_request(url, params=params)
-    
-    # ==================== 步骤3: 解析JSON响应 ====================
-    data_json = r.json()
-    
-    # 提取diff数组
-    temp_df = pd.DataFrame(data_json["data"]["diff"])
-    
-    # ==================== 步骤4: 创建映射字典 ====================
-    # zip(代码列, 市场ID列) → 转换为字典
+
+    # ==================== 步骤2: 分页拉取 ====================
+    all_data = []
+    page = 1
+
+    while True:
+        params = base_params.copy()
+        params["pn"] = str(page)
+        r = fetcher.make_request(url, params=params)
+        data_json = r.json()
+
+        diff = data_json["data"].get("diff")
+        if not diff:
+            break
+
+        all_data.extend(diff)
+
+        total = data_json["data"].get("total", 0)
+        if total == 0 or len(all_data) >= total:
+            break
+
+        sleep_with_delay('normal')
+        page += 1
+
+    # ==================== 步骤3: 创建映射字典 ====================
+    temp_df = pd.DataFrame(all_data)
     # 例如：{'159707': 1, '510300': 0, ...}
     temp_dict = dict(zip(temp_df["f12"], temp_df["f13"]))
-    
-    # ==================== 步骤5: 返回映射字典 ====================
-    return temp_dict
+
+    # ==================== 步骤4: 带Fallback的Dict包装 ====================
+    # 若代码未在API返回中出现，按代码前缀推断：
+    #   5/6开头 → 上海(1), 0/1/2/3/8开头 → 深圳(0)
+    class _CodeIdDict(dict):
+        def __missing__(self, key):
+            val = 1 if key[0] in ("5", "6") else 0
+            self[key] = val
+            return val
+
+    return _CodeIdDict(temp_dict)
 
 
 # ==================== ETF历史K线数据 ====================

@@ -116,15 +116,15 @@ def run(df: pd.DataFrame) -> "types.SimpleNamespace":
                     add_trade("SELL", "TQQQ", qty, tqqq_price, proceeds, state)
             pending_buy = True
 
-        # --- NORMAL 状态内偏离再平衡（对齐 base.ts V22: NORMAL 且市值偏离>阈值调回45/45）---
+        # --- NORMAL 状态内偏离再平衡（对齐 base.ts V22: NORMAL 且两侧市值差占比>20%调回45/45）---
         # 仅在非切换日（切换日已通过 pending_buy 处理）且当前持仓已建立后执行。
         if prev_state != "INIT" and state == "NORMAL" and not pending_buy and value > 0:
             val_q = shares_qqq * qqq_price
             val_t = shares_tqqq * tqqq_price
-            dev_q = val_q / value - S.NORMAL_REBAL_W  # 偏离 0.45
-            dev_t = val_t / value - S.NORMAL_REBAL_W
+            # 与 base 一致：偏差 = |市值_q - 市值_t| / 总市值
+            deviation = abs(val_q - val_t) / (value + 1e-6)
             # 偏离超过阈值时调回（卖出偏离过大的一侧，补另一侧）
-            if abs(dev_q) > S.NORMAL_REBAL_DEV or abs(dev_t) > S.NORMAL_REBAL_DEV:
+            if deviation > S.NORMAL_REBAL_DEV:
                 target_qqq_val = value * S.NORMAL_REBAL_W
                 target_tqqq_val = value * S.NORMAL_REBAL_W
                 # 先卖后买：把超出目标的部分变现

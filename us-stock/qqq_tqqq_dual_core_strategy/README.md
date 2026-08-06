@@ -1,6 +1,6 @@
 # QQQ / TQQQ 双核策略 · 本地回测版
 
-基于 `base/ts_reference.py`（base.ts V22.1）精确移植的本地回测工程。
+基于 `base/qqq_tqqq_dual_core_strategy_base_v22.py`（base.ts V22.1）精确移植的本地回测工程。
 回测逻辑与 base 状态机**完全一致**，仅有一处获准偏离（见下文「与 base 的差异」）。
 
 ---
@@ -10,7 +10,7 @@
 ```
 qqq_tqqq_dual_core_strategy/
 ├── base/
-│   └── ts_reference.py             # 🔒 基准实现（只读，禁止修改）
+│   └── qqq_tqqq_dual_core_strategy_base_v22.py             # 🔒 基准实现（只读，禁止修改）
 ├── config/settings.py              # 阈值参数 + VOL_FACTOR（唯一偏离点）
 ├── data/fetcher.py                 # 东财美股数据拉取（含缓存，已修复 end 截断）
 ├── utils/helpers.py                # 指标计算（MA / ATH / VolMA）

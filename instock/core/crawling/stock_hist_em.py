@@ -21,6 +21,10 @@ __date__ = '2025/12/31 '
 # 创建全局实例，供所有函数使用
 fetcher = eastmoney_fetcher()
 
+# 内存缓存：避免每次调用都从磁盘读取 + 打印日志
+_CODE_ID_MAP_CACHE = None
+_CODE_ID_MAP_CACHE_LOADED_AT = None
+
 """
 东方财富网-沪深京 A 股-实时行情
 https://quote.eastmoney.com/center/gridlist.html#hs_a_board
@@ -214,6 +218,12 @@ def code_id_map_em(use_cache: bool = True, cache_expire_hours: int = 720) -> dic
     返回：
         dict: {股票代码: {name, market_id, market_name, market_code, stock_type, industry, listing_date}} 的映射字典
     """
+    global _CODE_ID_MAP_CACHE, _CODE_ID_MAP_CACHE_LOADED_AT
+    
+    # 优先返回内存缓存，避免每次调用都读磁盘 + 打印日志
+    if _CODE_ID_MAP_CACHE is not None:
+        return _CODE_ID_MAP_CACHE
+    
     # 缓存文件路径
     cache_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cache')
     cache_file = os.path.join(cache_dir, 'stock_code_map.json')
@@ -250,8 +260,10 @@ def code_id_map_em(use_cache: bool = True, cache_expire_hours: int = 720) -> dic
                             "industry": "",
                             "listing_date": "",
                         }
-                    return upgraded_map
-                
+                _CODE_ID_MAP_CACHE = upgraded_map
+                return upgraded_map
+            
+                _CODE_ID_MAP_CACHE = code_map
                 return code_map
             else:
                 print(f"⚠️  缓存已过期，重新获取...")
@@ -477,6 +489,7 @@ def code_id_map_em(use_cache: bool = True, cache_expire_hours: int = 720) -> dic
     except Exception as e:
         print(f"⚠️  保存缓存失败: {e}")
     
+    _CODE_ID_MAP_CACHE = code_id_dict
     return code_id_dict
 
 

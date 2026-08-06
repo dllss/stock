@@ -57,6 +57,26 @@ import instock.lib.run_template as runt  # 任务运行模板
 import instock.backtest.rate_stats as rate  # 收益率计算
 # from instock.core.singleton_stock import stock_hist_data  # 历史数据单例（已不再使用，回测任务直接查询数据库）
 
+# 本模块日志统一输出到 instock/backtest/log/
+_BACKTEST_LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log')
+
+
+def _setup_logging(log_filename='stock_backtest_data_daily.log'):
+    """配置日志到 instock/backtest/log/"""
+    if not os.path.exists(_BACKTEST_LOG_DIR):
+        os.makedirs(_BACKTEST_LOG_DIR)
+    log_file = os.path.join(_BACKTEST_LOG_DIR, log_filename)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(message)s",
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(log_file, encoding="utf-8"),
+        ],
+        force=True,
+    )
+    return log_file
+
 __author__ = 'myh '
 __date__ = '2023/3/10 '
 
@@ -513,8 +533,7 @@ if __name__ == '__main__':
         - 需要先有策略结果（strategy_data_daily_job）
         - 一般由execute_daily_job统一调度
     """
-    from instock.lib.logger_config import setup_job_logging
-    setup_job_logging()
+    _setup_logging()
     main()
 
 

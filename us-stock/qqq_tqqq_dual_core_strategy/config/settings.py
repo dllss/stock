@@ -17,7 +17,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class Settings:
     # ---- 账户 / 资金 ----
     INIT_CAPITAL: float = 100_000.0  # 初始资金（美元）
-    MIN_TRADE_VAL: float = 100.0  # 单笔最小交易额（过滤零头碎股）
+    MIN_TRADE_VAL: float = 500.0  # 单笔最小交易额（过滤零头碎股；与 base 实盘层一致）
     ROUND_LOTS: bool = True  # 是否按整股取整
 
     # ---- 标的 ----
@@ -31,7 +31,7 @@ class Settings:
     # ---- 指标窗口 ----
     MA_SHORT: int = 20  # MA20
     MA_LONG: int = 200  # MA200
-    VOL_WINDOW: int = 20  # 量能均线窗口
+    VOL_WINDOW: int = 60  # 量能均线窗口（与 base 实盘层一致）
     VOL_FACTOR: float = 1.5  # 逃顶量能阈值倍数（收阴且量 > VolMA*FACTOR）
     ATH_WINDOW: int = 250  # ATH 观察窗口（仅日志展示用；实际 ATH 用 cummax 全局最高）
     RET_WINDOW: int = 60  # 滚动回撤窗口
@@ -40,15 +40,13 @@ class Settings:
     BATTLE_LINE: float = -0.10  # 回撤 <=-10% => 交战区
 
     # ---- 状态切换冷却 ----
-    MIN_RISK_OFF_DAYS: int = 1  # 风险区 -> 风险区最少等待天数（Anti-V 冷静期）
+    MIN_RISK_OFF_DAYS: int = 2  # 风险区 -> 风险区最少等待天数（Anti-V 冷静期；与 base 实盘层一致）
     RISK_OFF_LIST: tuple[str, ...] = (
         "ZONE_BATTLE_DEFEND",
-        "ZONE_BATTLE_ATTACK",
-        "ZONE_DESPAIR_TQQQ",
         "BEAR_CASH",
         "TOP_ESCAPE",
     )
-    RISK_ON_LIST: tuple[str, ...] = ("NORMAL",)
+    RISK_ON_LIST: tuple[str, ...] = ("ZONE_BATTLE_ATTACK", "NORMAL")
 
     # ---- 预热 / 数据区间 ----
     WARMUP_START: str = "2015-01-01"  # 指标预热起点（MA200 需足够历史）

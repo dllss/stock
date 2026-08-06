@@ -1,0 +1,20 @@
+# 美股双核策略子项目 - 依赖兜底说明
+#
+# 该子项目的正式依赖与工具配置以
+#   qqq_tqqq_dual_core_strategy/pyproject.toml
+# 为准（含 pytest / ruff / black）。本文件仅作 pip 安装的兜底清单，
+# 不参与构建工具决策。
+#
+# 数据抓取使用项目自带的 data/fetcher.py（东方财富美股接口，request 实现），
+# 不依赖 yfinance / pandas-datareader。
+
+# 运行必需
+pandas>=2.0.0
+numpy>=1.24.0
+requests>=2.31.0
+
+# 开发 / 测试（与 pyproject.toml 保持一致）
+pytest>=7.4.0
+pytest-cov>=4.1.0
+ruff>=0.4.0
+black>=23.0.0

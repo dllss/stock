@@ -6,7 +6,7 @@
 * { box-sizing: border-box; }
 body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
        margin: 0; background: #f5f6f8; color: #222; }
-.wrap { max-width: 1000px; margin: 0 auto; padding: 24px; }
+.wrap { max-width: 100%; margin: 0 auto; padding: 24px 32px; }
 h1 { font-size: 22px; margin: 0 0 4px; }
 h2 { font-size: 17px; margin: 28px 0 12px; border-left: 4px solid #2563eb; padding-left: 10px; }
 .sub { color: #888; font-size: 13px; margin-bottom: 8px; }
@@ -22,6 +22,7 @@ h2 { font-size: 17px; margin: 28px 0 12px; border-left: 4px solid #2563eb; paddi
 .tbl th, .tbl td { padding: 9px 12px; text-align: right; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
 .tbl th { background: #f8fafc; color: #555; font-weight: 600; }
 .tbl td:first-child, .tbl th:first-child { text-align: left; white-space: nowrap; min-width: 100px; }
+.tbl th.cw, .tbl td.cw { min-width: 120px; white-space: nowrap; }  /* 数值列宽度 +30% */
 .tbl tbody tr:hover { background: #f9fbff; }
 .chart { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px;
          box-shadow: 0 1px 2px rgba(0,0,0,.04); }
@@ -31,30 +32,21 @@ pre.live { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 16
            font-family: "Cascadia Code", Consolas, "Microsoft YaHei", monospace;
            font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 
-/* ===== 明日操作思维导图动画 ===== */
+/* ===== 明日操作思维导图（D3 tree） ===== */
 .mindmap-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
-               padding: 16px; margin: 16px 0; box-shadow: 0 1px 2px rgba(0,0,0,.04); overflow-x: auto; }
+               padding: 16px; margin: 16px 0; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 .mindmap-wrap h3 { font-size: 15px; margin: 0 0 10px; color: #334155; }
 .mindmap-tip { color: #888; font-size: 12px; margin: 8px 0 0; }
-.mm-svg { display: block; }
-.mm-node, .mm-link { opacity: 0; animation: mmFade 0.5s ease forwards; }
-.mm-link { fill: none; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 600; stroke-dashoffset: 600;
-           animation-name: mmGrow; }
-@keyframes mmFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes mmGrow { from { stroke-dashoffset: 600; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
-/* 节点块配色（按层级） */
-.mm-rect { stroke-width: 1.5; }
-.mm-rect-0 { fill: #eff6ff; stroke: #2563eb; }
-.mm-rect-1 { fill: #f0fdf4; stroke: #16a34a; }
-.mm-rect-2 { fill: #fff7ed; stroke: #ea580c; }
-.mm-rect-3 { fill: #fef2f2; stroke: #dc2626; }
-.mm-title { font-size: 13px; font-weight: 700; fill: #1e293b; }
-.mm-cond { font-size: 10.5px; fill: #b45309; }
-.mm-act { font-size: 10.5px; fill: #15803d; font-weight: 600; }
-@media (prefers-reduced-motion: reduce) {
-  .mm-node, .mm-link { animation: none; opacity: 1; }
-  .mm-link { stroke-dashoffset: 0; }
-}
+.mm-container { width: 100%; min-height: 560px; border: 1px solid #eef2f7; border-radius: 8px;
+                background: #fcfdff; }
+.mm-svg { display: block; width: 100%; height: auto; }
+.mm-link { fill: none; stroke: #94a3b8; stroke-width: 1.5; }
+.mm-rect { filter: drop-shadow(0 1px 2px rgba(0,0,0,.06)); }
+.mm-title { font-size: 15px; font-weight: 700; fill: #1e293b; }
+.mm-cond { font-size: 12px; fill: #b45309; }
+.mm-act { font-size: 12px; fill: #15803d; font-weight: 600; }
+.mm-extra { font-size: 12px; fill: #7c3aed; font-weight: 600; }
+.mm-unreach { font-size: 12px; fill: #dc2626; font-weight: 700; }
 </style></head>
 <body><div class="wrap">
 <h1>$title</h1>

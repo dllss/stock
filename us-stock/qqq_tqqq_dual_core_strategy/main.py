@@ -194,29 +194,41 @@ def _emit_next_state_guide(logger, df, trade_start):
         "  QQQ 收盘: %.2f | ATH: %.2f | MA200: %.2f | MA20: %.2f" % (close, ath, ma200, ma20)
     )
     logger.info(
-        "  QQQ 真实市价(不复权, 盯盘用): %.2f (后复权≈%.2f 的约 %.1f%%)" % (real_q, close, k * 100)
+        "  QQQ 真实市价(不复权, 盯盘用): %.2f (后复权~%.2f 的约 %.1f%%)" % (real_q, close, k * 100)
     )
     logger.info("  当前回撤: %.2f%%" % (drawdown * 100))
     logger.info("  当前状态: %s  ->  当前动作: %s" % (s["state"], LIVE_ACTION.get(s["state"], "?")))
     logger.info(
-        "  QQQ 成交量均线 VolMA(前%d日): %.0f  ->  逃顶量能阈值 = VolMA×%.1f = %.0f"
+        "  QQQ 成交量均线 VolMA(前%d日): %.0f  ->  逃顶量能阈值 = VolMA*%.1f = %.0f"
         % (S.VOL_WINDOW, volma, S.VOL_FACTOR, volma * S.VOL_FACTOR)
     )
 
     logger.info("\n[次日切换地图] 只要 QQQ 价格满足下列价能条件，即切换到对应状态：")
     logger.info("-" * 68)
 
-    high_zone_line = ath * S.HIGH_ZONE  # 逃顶价线
-    dd10_line = ath * (1 - 0.10)  # 回撤 -10% 线
-    dd30_line = ath * (1 - 0.30)  # 回撤 -30% 线
+    high_zone_line = ath * S.HIGH_ZONE  # 逃顶价线（后复权）
+    dd10_line = ath * (1 - 0.10)  # 回撤 -10% 线（后复权）
+    dd30_line = ath * (1 - 0.30)  # 回撤 -30% 线（后复权）
+
+    # 价能临界线统一给出两个口径，避免前后复权混用歧义：
+    #   真实 = 券商盯盘用的不复权市价（后复权 × k）
+    #   后复权 = 回测/核对口径（MA/ATH 线本质即后复权序列算得）
+    # tag 标注指标来源（MA200/MA20/ATH*0.95 等），挂在后复权值上。
+    def _price(real, hfq, tag=""):
+        return "%.2f (含义: %s，后复权: %.2f)" % (real, tag, hfq)
+
+    r_ma200 = ma200 * k
+    r_ma20 = ma20 * k
+    r_hz = high_zone_line * k
+    r_dd10 = dd10_line * k
+    r_dd30 = dd30_line * k
 
     lines = []
     lines.append(
         (
             "逃顶 TOP_ESCAPE",
-            "QQQ 收盘 >= %.2f (后复权≈%.2f) (ATH×%.2f)"
-            % (high_zone_line * k, high_zone_line, S.HIGH_ZONE),
-            "还需: 当日成交量>%.0f(VolMA×%.1f) 且 收阴(close<open)"
+            "QQQ 收盘 >= %s" % _price(r_hz, high_zone_line, "ATH*%.2f" % S.HIGH_ZONE),
+            "还需: 当日成交量>%.0f(VolMA*%.1f) 且 收阴(close<open)"
             % (volma * S.VOL_FACTOR, S.VOL_FACTOR),
             LIVE_ACTION["TOP_ESCAPE"],
         )
@@ -225,50 +237,35 @@ def _emit_next_state_guide(logger, df, trade_start):
         lines.append(
             (
                 "跌破 MA200 -> 风险区",
-                "QQQ 收盘 < %.2f (后复权≈%.2f) (MA200)" % (ma200 * k, ma200),
-                "进入后按回撤分三档(见下)",
+                "QQQ 收盘 < %s" % _price(r_ma200, ma200, "MA200"),
+                "进入后按回撤分两档(见下)",
                 LIVE_ACTION["BEAR_CASH"],
             )
         )
         lines.append(
             (
-                "  其中 回撤>-10%%",
-                "  且 %.2f <= QQQ收盘 < %.2f (后复权≈%.2f)" % (dd10_line * k, ma200 * k, ma200),
-                "  -> BEAR_CASH",
-                LIVE_ACTION["BEAR_CASH"],
-            )
-        )
-        lines.append(
-            (
-                "  其中 -30%%<=回撤<=-10%% 且 close<MA20",
-                "  QQQ收盘<=%s 且 QQQ收盘<%.2f(MA20) (后复权≈%.2f)"
-                % (dd10_line * k, ma20, dd10_line),
                 "  -> ZONE_BATTLE_DEFEND",
+                "%s <= QQQ收盘 < %s"
+                % (_price(r_dd30, dd30_line, "ATH*0.70"), _price(r_dd10, dd10_line, "ATH*0.90")),
+                "",
                 LIVE_ACTION["ZONE_BATTLE_DEFEND"],
+                "-30%<=回撤<=-10% 且 close<MA20",
             )
         )
         lines.append(
             (
-                "  其中 -30%%<=回撤<=-10%% 且 close>MA20",
-                "  %s<=QQQ收盘<%s 且 QQQ收盘>%.2f(MA20) (后复权≈%.2f)"
-                % (dd10_line * k, ma200 * k, ma20, ma200),
-                "  -> ZONE_BATTLE_ATTACK",
-                LIVE_ACTION["ZONE_BATTLE_ATTACK"],
-            )
-        )
-        lines.append(
-            (
-                "  其中 回撤<=-30%%",
-                "  QQQ收盘 < %s (后复权≈%.2f)" % (dd30_line * k, dd30_line),
                 "  -> ZONE_DESPAIR_TQQQ",
+                "QQQ收盘 < %s" % _price(r_dd30, dd30_line, "ATH*0.70"),
+                "",
                 LIVE_ACTION["ZONE_DESPAIR_TQQQ"],
+                "回撤<=-30%",
             )
         )
     else:
         lines.append(
             (
                 "站回 MA200 -> 回 NORMAL/ATTACK",
-                "QQQ 收盘 > %s (后复权≈%.2f) (MA200)" % (ma200 * k, ma200),
+                "QQQ 收盘 > %s" % _price(r_ma200, ma200, "MA200"),
                 "回撤<-10%%则 ATTACK(TQQQ), 否则 NORMAL(QQQ+TQQQ)",
                 LIVE_ACTION["NORMAL"],
             )
@@ -276,7 +273,7 @@ def _emit_next_state_guide(logger, df, trade_start):
         lines.append(
             (
                 "回撤 -10%% 线",
-                "QQQ 收盘 %s (后复权≈%.2f) (ATH×0.90)" % (dd10_line * k, dd10_line),
+                "QQQ 收盘 %s" % _price(r_dd10, dd10_line, "ATH*0.90"),
                 "上方且>MA200 -> NORMAL; 下方且<MA200 进入风险区分档",
                 LIVE_ACTION["NORMAL"],
             )
@@ -284,7 +281,7 @@ def _emit_next_state_guide(logger, df, trade_start):
         lines.append(
             (
                 "回撤 -30%% 线",
-                "QQQ 收盘 %s (后复权≈%.2f) (ATH×0.70)" % (dd30_line * k, dd30_line),
+                "QQQ 收盘 %s" % _price(r_dd30, dd30_line, "ATH*0.70"),
                 "下方 -> ZONE_DESPAIR_TQQQ",
                 LIVE_ACTION["ZONE_DESPAIR_TQQQ"],
             )
@@ -298,11 +295,16 @@ def _emit_next_state_guide(logger, df, trade_start):
         )
     )
 
-    for title, price_cond, extra, act in lines:
-        logger.info("  • %s" % title)
+    for row in lines:
+        title, price_cond, extra, act = row[0], row[1], row[2], row[3]
+        cond_note = row[4] if len(row) > 4 else ""
+        logger.info("  - %s" % title)
+        if cond_note:
+            logger.info("      条件说明: %s" % cond_note)
         logger.info("      价能条件: %s" % price_cond)
-        logger.info("      附加条件: %s" % extra)
-        logger.info("      动作    : %s" % act)
+        if extra:
+            logger.info("      附加条件: %s" % extra)
+        logger.info("      执行动作: %s" % act)
         logger.info("")
 
     # ---- 限制说明（明确打印，供复盘）----
@@ -310,14 +312,14 @@ def _emit_next_state_guide(logger, df, trade_start):
     logger.info("[限制与注意事项]")
     logger.info("  1) 逃顶 TOP_ESCAPE 的量能条件需次日确认，但可盘中估算：")
     logger.info(
-        "     已知 VolMA=%.0f，故量能阈值=%.0f（VolMA×%.1f）。"
+        "     已知 VolMA=%.0f，故量能阈值=%.0f（VolMA*%.1f）。"
         % (volma, volma * S.VOL_FACTOR, S.VOL_FACTOR)
     )
     logger.info("     「次日实际成交量」未知，但可在盘中自行估算：")
-    logger.info("       估算全天量 ≈ 当前时点成交量 ÷ 当日已过交易时间占比")
-    logger.info("                  （例如已过半天，则 ×2 粗略外推；美股本日共6.5小时）")
+    logger.info("       估算全天量 ~ 当前时点成交量 ÷ 当日已过交易时间占比")
+    logger.info("                  （例如已过半天，则 *2 粗略外推；美股本日共6.5小时）")
     logger.info(
-        "     若估算全天量 > %.0f 且 QQQ 收盘价>=%s (后复权≈%.2f) 且 收阴(close<open)，"
+        "     若估算全天量 > %.0f 且 QQQ 收盘价>=%.2f (后复权~%.2f) 且 收阴(close<open)，"
         % (volma * S.VOL_FACTOR, high_zone_line * k, high_zone_line)
     )
     logger.info("     则触发逃顶，状态切为 TOP_ESCAPE；否则为假突破，不切换。")
@@ -474,11 +476,16 @@ def _emit_live_signal(logger, df, trade_start, out):
         "      回测净值用后复权价(hfq，正确处理 TQQQ 拆股，收益更准)；本指令的总资产/市值/股数"
     )
     logger.info("      均按真实市价计算（券商账户实际计价），与后复权净值口径分离、互不污染。")
-    logger.info("      关于T+1防融资规则: 若上方「状态切换指导」判定次日需切换状态，")
+    logger.info("      关于T+1防融资规则(与 base 自动执行层一致): 若上方「状态切换指导」判定次日需切换状态，")
     logger.info(
         "      切换当日只执行卖出变现，买入推迟到再下一个交易日(资金结算后)按目标权重执行；"
     )
     logger.info("      故状态切换当日先卖、次交易日再买，请勿在切换当日满仓买入。")
+    logger.info("      三保险(手动操作须同样遵守):")
+    logger.info("        1) 禁止融资: 次交易日买入只能用卖出所得现金，绝不使用融资/保证金；")
+    logger.info("        2) Anti-V冷却: 风险解除后需连续 %d 个交易日保持在场才允许切回 risk-on，" % S.MIN_RISK_OFF_DAYS)
+    logger.info("           防止刚卖就V型反转踏空；(base自动层更严: %d 天)" % 2)
+    logger.info("        3) 小单阈值: 买卖差额 <= %d 美元时视为无需调仓，跳过操作避免碎单。" % S.MIN_TRADE_VAL)
 
 
 def main(start=None, warmup_start=None, end=None, live=False):

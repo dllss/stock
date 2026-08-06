@@ -14,7 +14,9 @@
 支持的策略ID：
   turtle_trade, breakthrough_volume, breakthrough_platform,
   backtrace_ma250, keep_increasing, low_atr, low_backtrace,
-  parking_apron, high_tight_flag, climax_limitdown
+  parking_apron, high_tight_flag, climax_limitdown,
+  dual_momentum, ma200_trend, bollinger_reversion,
+  vol_targeting, adaptive_momentum
 
 运行方式：
   # 运行单个策略
@@ -51,8 +53,10 @@ from instock.backtest.backtest_runner import (  # noqa: E402
     run_backtest,
     run_multi_backtest,
     summarize,
+    summarize_portfolio,
     print_summary,
     print_trades,
+    print_portfolio_trades,
     print_comparison,
     simulate_portfolio,
     print_portfolio_summary,
@@ -66,6 +70,28 @@ from instock.backtest.optimizer import (  # noqa: E402
     print_optimization_results,
     STRATEGY_PARAM_GRIDS,
 )
+
+# 本模块日志统一输出到 instock/backtest/log/
+_BACKTEST_LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log')
+
+
+def _setup_logging(log_filename='stock_backtest_strategy.log'):
+    """配置日志：同时输出到终端和 instock/backtest/log/ 下文件"""
+    import logging as _logging
+    import sys as _sys
+    if not os.path.exists(_BACKTEST_LOG_DIR):
+        os.makedirs(_BACKTEST_LOG_DIR)
+    _log_file = os.path.join(_BACKTEST_LOG_DIR, log_filename)
+    _logging.basicConfig(
+        level=_logging.INFO,
+        format="%(asctime)s %(message)s",
+        handlers=[
+            _logging.StreamHandler(_sys.stdout),
+            _logging.FileHandler(_log_file, encoding="utf-8"),
+        ],
+        force=True,
+    )
+    return _log_file
 
 __author__ = 'myh '
 __date__ = '2026/06/08 '
@@ -235,24 +261,13 @@ def run_compare(
             from datetime import datetime
             timestamp = datetime.now().strftime('%Y%m%d%H%M')
             log_filename = f"{strategy_name}_{timestamp}.log"
-            from instock.lib.logger_config import setup_job_logging
-            setup_job_logging(log_filename)
+            _setup_logging(log_filename)
             
             logging.info('=' * 60)
             logging.info(f'🚀 策略: {strategy_name} ({sid})')
             logging.info('=' * 60)
 
-        s = summarize(trades, strategy_name, start_date, end_date)
-        summaries[sid] = s
-
-        # 打印交易详情（前30笔盈利 + 前30笔亏损）
-        if len(trades) > 0:
-            logging.info('\n' + '=' * 60)
-            logging.info(f'📋 策略: {strategy_name} ({sid}) - 交易详情')
-            logging.info('=' * 60)
-            print_trades(trades, top_n=30)
-
-        # 模拟账户收益
+        # 先跑资金账户模拟，再从其实际成交生成所有统计
         if len(trades) > 0:
             portfolio_result = simulate_portfolio(
                 trades,
@@ -265,6 +280,38 @@ def run_compare(
             portfolio_results[sid] = portfolio_result
             print_portfolio_summary(portfolio_result)
 
+            # 从资金账户实际成交生成交易汇总（而非所有信号）
+            closed_trades = portfolio_result.get('closed_trades', [])
+            s = summarize_portfolio(closed_trades, strategy_name, start_date, end_date)
+            summaries[sid] = s
+
+            # 打印交易详情
+            if closed_trades:
+                logging.info('\n' + '=' * 60)
+                logging.info(f'📋 策略: {strategy_name} ({sid}) - 交易详情 (实际成交 {len(closed_trades)} 笔)')
+                logging.info('=' * 60)
+                print_portfolio_trades(closed_trades, top_n=30)
+        else:
+            portfolio_result = {
+                'final_value': 1000000.0,
+                'total_return': 0.0,
+                'total_return_pct': 0.0,
+                'max_drawdown_pct': 0.0,
+                'n_trades': 0,
+                'peak_value': 1000000.0,
+                'closed_trades': [],
+            }
+            portfolio_results[sid] = portfolio_result
+            s = summarize([], strategy_name, start_date, end_date)
+            summaries[sid] = s
+            logging.info(f'\n{"=" * 60}')
+            logging.info(f'💰 策略: {strategy_name} - 零交易，维持初始资金')
+            logging.info(f'{"=" * 60}')
+            logging.info(f'  最终总资产:      1,000,000.00 元')
+            logging.info(f'  总收益率:       0.00%')
+            logging.info(f'  交易次数:       0')
+            logging.info(f'{"=" * 60}')
+
     # 打印对比表
     print_comparison(summaries)
 
@@ -273,13 +320,15 @@ def run_compare(
         logging.info('\n' + '=' * 75)
         logging.info('💰 模拟账户收益对比 (初始资金: 1,000,000 元)')
         logging.info('=' * 75)
-        logging.info(f"{'策略':<20} {'最终资产':>12} {'收益率':>8} {'最大回撤':>8} {'交易数':>6}")
+        logging.info(f"{'策略':<20} {'最终资产':>12} {'收益率':>8} {'最大回撤':>8} {'交易数':>6} {'过滤':>4}")
         logging.info('-' * 75)
         for sid, pr in portfolio_results.items():
             config = STRATEGY_CONFIGS[sid]
             strategy_name = config['name']
+            filter_on = config.get('use_market_filter', True)
+            filter_tag = '✓' if filter_on else '—'
             dd = pr.get('max_drawdown_pct', 0)
-            logging.info(f"{strategy_name:<20} {pr['final_value']:>12,.0f} {pr['total_return_pct']:>7.2f}% {dd:>7.2f}% {pr['n_trades']:>6}")
+            logging.info(f"{strategy_name:<20} {pr['final_value']:>12,.0f} {pr['total_return_pct']:>7.2f}% {dd:>7.2f}% {pr['n_trades']:>6} {filter_tag:>4}")
         logging.info('=' * 75)
 
 
@@ -442,11 +491,38 @@ def main(strategy_spec: str | None = None, start_date: str | None = None, end_da
             log_filename = f"优化_多策略_{timestamp}.log"
     
     # 配置日志
-    from instock.lib.logger_config import setup_job_logging
-    setup_job_logging(log_filename)
+    _setup_logging(log_filename)
 
-    logging.info(f'📅 回测区间: {start_date} ~ {end_date}')
-    logging.info(f'📋 日志文件: {log_filename}')
+    # ---- 任务头 ----
+    if strategy_spec is None or strategy_spec == '' or (
+        not strategy_spec.startswith('all')
+        and not strategy_spec.startswith('compare')
+        and not strategy_spec.startswith('optimize')
+    ):
+        mode = '单策略回测'
+        sid = strategy_spec if strategy_spec else 'breakthrough_volume'
+        sname = STRATEGY_CONFIGS.get(sid, {}).get('name', sid)
+    elif strategy_spec == 'all':
+        mode = '多策略对比'
+        sname = '全部策略'
+    elif strategy_spec.startswith('compare:'):
+        ids_str = strategy_spec.replace('compare:', '')
+        mode = '多策略对比'
+        sname = ids_str
+    else:
+        if strategy_spec == 'optimize':
+            ids_str = 'breakthrough_volume'
+        else:
+            ids_str = strategy_spec.replace('optimize:', '')
+        mode = '参数优化'
+        sname = ids_str
+
+    logging.info('=' * 60)
+    logging.info(f'  📋 任务: {mode}')
+    logging.info(f'  🎯 策略: {sname}')
+    logging.info(f'  📅 区间: {start_date} ~ {end_date}')
+    logging.info(f'  📝 日志: {log_filename}')
+    logging.info('=' * 60)
 
     # 1. 加载数据
     kline_dict = load_kline_data(start_date, end_date)
@@ -499,9 +575,7 @@ def main(strategy_spec: str | None = None, start_date: str | None = None, end_da
 # ==================== 程序入口 ====================
 
 if __name__ == '__main__':
-    from instock.lib.logger_config import setup_job_logging
-
-    _ = setup_job_logging(log_filename='stock_backtest_strategy.log')
+    _ = _setup_logging(log_filename='stock_backtest_strategy.log')
 
     # 支持命令行参数
     args = sys.argv[1:]
