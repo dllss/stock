@@ -28,6 +28,17 @@ class Settings:
     NORMAL_REBAL_W: float = 0.45  # QQQ / TQQQ 目标权重（各 45%，现金 10% 缓冲）
     NORMAL_REBAL_DEV: float = 0.20  # 市值偏离 > 20% 才触发再平衡
 
+    # ---- 实盘跟踪线（独立账户，从建仓日起算真实收益率，与回测线分离）----
+    # 同时作为 --live 次日操作指令的真实账户数据源（唯一真实账户入口）。
+    TRACK_BUY_DATE: str = "2026-08-06"  # 真实建仓日
+    TRACK_SHARES_QQQ: float = 1.0  # 建仓 QQQ 股数
+    TRACK_SHARES_TQQQ: float = 11.0  # 建仓 TQQQ 股数
+    TRACK_PRICE_QQQ: float = 715.0  # 建仓 QQQ 单价（真实价）
+    TRACK_PRICE_TQQQ: float = 72.0  # 建仓 TQQQ 单价（真实价）
+    TRACK_CASH: float = 150.0  # 建仓后剩余现金
+    TRACK_INIT_CAPITAL: float = 1657.0  # 实盘投入本金（= 股票成本 1*715 + 11*72 + 现金 150）
+    TRACK_CASH_PCT: float = 0.088  # 跟踪线目标现金比例（QQQ/TQQQ 各 (1-此值)/2）
+
     # ---- 指标窗口 ----
     MA_SHORT: int = 20  # MA20
     MA_LONG: int = 200  # MA200
@@ -55,7 +66,7 @@ class Settings:
     # ---- 目录 ----
     OUTPUT_DIR: str = field(default_factory=lambda: os.path.join(BASE_DIR, "OUTPUT"))
     CACHE_DIR: str = field(default_factory=lambda: os.path.join(BASE_DIR, "data", "cache"))
-    LOG_FILE: str = field(default_factory=lambda: os.path.join(BASE_DIR, "OUTPUT", "backtest.log"))
+    LIVE_LOG_FILE: str = field(default_factory=lambda: os.path.join(BASE_DIR, "OUTPUT", "live_track.log"))
 
 
 # 模块级配置实例，全局统一访问点

@@ -567,6 +567,7 @@ def build_report(
     run_ts,
     live=False,
     live_text="",
+    live_hist_html="",
 ):
     """生成自包含 HTML 报告，与 CSV 同目录、同时间戳配对。
     live_text: --live 模式下捕获的实盘操作指引纯文本（含明日指令/切换地图）。
@@ -605,6 +606,9 @@ def build_report(
     sd = str(port["date"].iloc[0])[:10]
     ed = str(port["date"].iloc[-1])[:10]
 
+    # 实盘跟踪历史表（line2），嵌入报告「实盘跟踪」章节
+    livehist_html = live_hist_html if live_hist_html else ""
+
     # 读取独立 HTML 模板并填充（string.Template：$var 占位，避免与 CSS 的 {} 冲突）
     tpl_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report_template.html")
     with open(tpl_path, encoding="utf-8") as f:
@@ -622,6 +626,7 @@ def build_report(
         state=state_html,
         mindmap=mindmap_html,
         live=live_html,
+        livehist=livehist_html,
         detail=detail,
     )
 

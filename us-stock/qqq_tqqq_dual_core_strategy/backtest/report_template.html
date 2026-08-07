@@ -26,11 +26,17 @@ h2 { font-size: 17px; margin: 28px 0 12px; border-left: 4px solid #2563eb; paddi
 .tbl tbody tr:hover { background: #f9fbff; }
 .chart { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px;
          box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-.scroll { max-height: 420px; overflow: auto; background: #fff; border-radius: 8px; }
+.scroll { max-height: 420px; overflow: auto; }  /* 透明滚动容器，避免表头上方出现白色块 */
+.scroll .tbl { overflow: visible; border-radius: 0; border-collapse: separate; border-spacing: 0; }  /* 解除 overflow 以便 sticky 生效 */
+.scroll .tbl thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc;
+                        box-shadow: 0 1px 0 #e5e7eb; }  /* 滚动时固定表头 */
 .note { color: #888; font-size: 12px; margin-top: 6px; }
-pre.live { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 16px 18px;
-           font-family: "Cascadia Code", Consolas, "Microsoft YaHei", monospace;
-           font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.live-section { margin: 16px 0; }
+.live-section .chart { margin-bottom: 16px; }
+.live-section .tbl { margin-top: 12px; }
+.live-section .tbl th:first-child, .live-section .tbl td:first-child { text-align: left; }
+.live-section .tbl tr.pos td:last-child { color: #16a34a; font-weight: 600; }
+.live-section .tbl tr.neg td:last-child { color: #dc2626; font-weight: 600; }
 
 /* ===== 明日操作思维导图（D3 tree） ===== */
 .mindmap-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
@@ -64,5 +70,6 @@ $mindmap
 $live
 <h2>每日净值明细</h2>
 <div class="scroll">$detail</div>
+$livehist
 <div class="note">数据来源：回测引擎逐日模拟，复权口径 hfq。「真实价市值」= 现金 + 份额×真实价（分红再投派实盘对账用，精确公式：real = cash + (hfq净值 − cash) / 复权因子）。完整调仓记录见同目录 .csv。</div>
 </div></body></html>
