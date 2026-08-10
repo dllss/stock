@@ -45,6 +45,88 @@ def _esc(s):
     return html.escape(str(s))
 
 
+def _build_price_svg(trade_df: pd.DataFrame):
+    """生成 QQQ / TQQQ 前复权(qfq)股价走势 SVG（双 Y 轴，真实价格数值）。
+
+    左轴 = QQQ 真实价（绿），右轴 = TQQQ 真实价（红）。
+    两量级差近 2000 倍（QQQ 末价 ~700，TQQQ 首价 ~0.4），故用独立双轴，
+    各自标注真实数值，避免把 TQQQ 压成贴底直线。
+    """
+    if trade_df is None or trade_df.empty:
+        return "<p>无价格数据</p>"
+
+    qqq = trade_df["QQQ_Close"].dropna().tolist()
+    tqqq = trade_df["TQQQ_Close"].dropna().tolist()
+    if not qqq and not tqqq:
+        return "<p>无价格数据</p>"
+
+    W, H = 900, 360
+    legend_h = 30
+    pad_l, pad_r, pad_t, pad_b = 64, 64, 20, 40
+    plot_w = W - pad_l - pad_r
+    plot_h = H - pad_t - pad_b
+
+    def x(ser, i):
+        return pad_l + (plot_w * i / (len(ser) - 1)) if len(ser) > 1 else pad_l
+
+    def y_axis(val, lo, hi):
+        span = (hi - lo) or 1.0
+        return pad_t + plot_h * (1 - (val - lo) / span)
+
+    # 各自量纲范围
+    qqq_lo, qqq_hi = (min(qqq), max(qqq)) if qqq else (0, 1)
+    tqqq_lo, tqqq_hi = (min(tqqq), max(tqqq)) if tqqq else (0, 1)
+    if qqq_lo > 0:
+        qqq_lo = 0.0
+    if tqqq_lo > 0:
+        tqqq_lo = 0.0
+
+    grid = []
+    # 共享网格线（以 6 等分左轴刻度），左右各标真实数值
+    for g in range(6):
+        frac = g / 5
+        yy = pad_t + plot_h * (1 - frac)
+        qv = qqq_lo + (qqq_hi - qqq_lo) * frac
+        tv = tqqq_lo + (tqqq_hi - tqqq_lo) * frac
+        grid.append('<line x1="%d" y1="%.1f" x2="%d" y2="%.1f" stroke="#eee" stroke-width="1"/>'
+                    % (pad_l, yy, W - pad_r, yy))
+        grid.append('<text x="%d" y="%.1f" fill="#16a34a" font-size="11" text-anchor="end">%.1f</text>'
+                    % (pad_l - 6, yy + 4, qv))
+        grid.append('<text x="%d" y="%.1f" fill="#dc2626" font-size="11" text-anchor="start">%.2f</text>'
+                    % (W - pad_r + 6, yy + 4, tv))
+
+    def path(ser, lo, hi, color):
+        pts = " ".join("%.1f,%.1f" % (x(ser, i), y_axis(v, lo, hi)) for i, v in enumerate(ser))
+        return '<polyline fill="none" stroke="%s" stroke-width="2" points="%s"/>' % (color, pts)
+
+    lines = []
+    if qqq:
+        lines.append(path(qqq, qqq_lo, qqq_hi, "#16a34a"))
+    if tqqq:
+        lines.append(path(tqqq, tqqq_lo, tqqq_hi, "#dc2626"))
+
+    legend = []
+    lx = pad_l
+    ly = legend_h / 2 - 6
+    for name, col, unit in [("QQQ（前复权，左轴）", "#16a34a", ""),
+                            ("TQQQ（前复权，右轴）", "#dc2626", "")]:
+        legend.append('<rect x="%d" y="%.1f" width="10" height="10" fill="%s"/>' % (lx, ly + 1, col))
+        legend.append('<text x="%d" y="%.1f" fill="#333" font-size="10">%s</text>'
+                      % (lx + 14, ly + 9, name))
+        lx += 230
+
+    return (
+        '<svg viewBox="0 0 %d %d" width="100%%" preserveAspectRatio="xMidYMid meet" '
+        'xmlns="http://www.w3.org/2000/svg">' % (W, H + legend_h)
+        + '<g transform="translate(0,%d)">' % legend_h
+        + "".join(grid)
+        + "".join(lines)
+        + "</g>"
+        + "".join(legend)
+        + "</svg>"
+    )
+
+
 def _build_svg(port_dual: pd.DataFrame, bh_qqq: dict, bh_tqqq: dict):
     """生成三策略归一化净值曲线 SVG（纵轴=净值/初始资金，横轴=交易日序号）。"""
     # 双核逐日净值（已为绝对值，用 INIT_CAPITAL 归一化）
@@ -157,8 +239,7 @@ def _state_dist_html(dist: pd.Series):
 def _attach_real_value(port: pd.DataFrame) -> pd.DataFrame:
     """附加真实价市值列：real_value = cash + shares_QQQ*raw_QQQ + shares_TQQQ*raw_TQQQ。
 
-    分红再投派下，hfq 净值 / adj_factor 等价于上式；这里直接用 raw 价乘份额，
-    避免 adj_factor 舍入误差，对账最精确。无网络/无 raw 数据时返回原表（不报错）。
+    直接用 raw 价乘份额，对账最精确（raw 即交易所真实成交价）。无网络/无 raw 数据时返回原表（不报错）。
     """
     if port is None or len(port) == 0:
         return port
@@ -171,7 +252,7 @@ def _attach_real_value(port: pd.DataFrame) -> pd.DataFrame:
             d = fetcher.fetch_ticker(tk, start="20080101", end="20991231", adjust="")
             if d.empty:
                 return port
-            # raw 价列改名避免与 port 的 hfq 价(QQQ_Close)冲突
+            # raw 价列改名避免与 port 的 qfq 价(QQQ_Close)冲突
             d = d.rename(
                 columns=lambda c, tk=tk: f"{tk}_raw" if c == "Close" else c
             )
@@ -216,12 +297,12 @@ def _detail_table(port: pd.DataFrame):
     head_label = {
         "date": "日期",
         "state": "状态",
-        "QQQ_Close": "QQQ(后复权)",
-        "TQQQ_Close": "TQQQ(后复权)",
+        "QQQ_Close": "QQQ(前复权)",
+        "TQQQ_Close": "TQQQ(前复权)",
         "cash": "现金",
         "shares_QQQ": "QQQ份额",
         "shares_TQQQ": "TQQQ份额",
-        "portfolio_value": "hfq净值",
+        "portfolio_value": "qfq净值",
         "real_value": "真实价市值",
         "ret": "累计收益",
     }
@@ -242,7 +323,7 @@ def _detail_table(port: pd.DataFrame):
                 vals.append(_pct(float(v)))
             elif c in ("QQQ_Close", "TQQQ_Close", "portfolio_value", "real_value"):
                 if c == "real_value":
-                    vals.append(_money(float(v)))  # 真实价市值（分红再投派对账用）
+                    vals.append(_money(float(v)))  # 真实价市值（真实成交价 × 份额，实盘对账用）
                 else:
                     vals.append(_money(float(v)) if c == "portfolio_value" else _fmt(float(v)))
             else:
@@ -496,14 +577,15 @@ def _build_mindmap(root):
         "  });\n"
         "  const maxHalf = root.descendants().reduce((m,d)=>Math.max(m, d._h/2), 0);\n"
         "  // 内部固定坐标系：内容自然宽高 + 留白（含卡片半高，避免上下裁切），svg 用 viewBox 由 CSS width:100% 等比缩放\n"
-        "  const padX = 40, padY = 30;\n"
+        "  const padX = 40, padY = 24;\n"
         "  const contentH = (x1 - x0) + maxHalf * 2 + padY * 2;\n"
         "  const contentW = (y1 - y0) + nodeW(root.descendants().sort((a,b)=>b.depth-a.depth)[0]) + padX * 2;\n"
         "  const vbH = contentH;\n"
         "  const svg = d3.select('#mm-container').append('svg')\n"
         "      .attr('class', 'mm-svg')\n"
         "      .attr('viewBox', `0 0 ${contentW} ${vbH}`)\n"
-        "      .attr('preserveAspectRatio', 'xMidYMid meet');\n"
+        "      .attr('preserveAspectRatio', 'xMidYMid meet')\n"
+        "      .style('--mm-w', contentW + 'px');  // 内容原始宽，窄屏(<960px)下用作固定宽，避免等比缩小压小文字\n"
         "  // 纵向平移：最上节点中心 x0 映射到 (padY + maxHalf)，使内容垂直居中且不裁切\n"
         "  const g = svg.append('g')\n"
         "      .attr('transform', `translate(${padX - y0},${padY + maxHalf - x0})`);\n"
@@ -565,6 +647,7 @@ def build_report(
     port,
     init_cap,
     run_ts,
+    trade_df=None,
     live=False,
     live_text="",
     live_hist_html="",
@@ -577,10 +660,12 @@ def build_report(
     title = "QQQ & TQQQ 双核策略回测报告"
     cards = _cards(summ, init_cap)
     compare = _compare_table(summ, summ_vol20, bh_qqq, bh_tqqq)
+    adjust_compare = ""
     svg = _build_svg(port, bh_qqq, bh_tqqq)
+    price_svg = _build_price_svg(trade_df)
     state_html = _state_dist_html(dist)
-    # 真实价市值（分红再投派对账用）：real = cash + shares*raw
-    # 复权因子 adj_factor = hfq/raw，故用 raw 价直接乘持仓份额；无网络时跳过该列。
+    # 真实价市值（实盘对账用）：real = cash + shares*raw，raw 即交易所真实成交价；
+    # 无网络/无 raw 数据时 _attach_real_value 静默跳过该列。
     port = _attach_real_value(port)
     detail = _detail_table(port)
 
@@ -621,7 +706,9 @@ def build_report(
         run_ts=run_ts,
         cards=cards,
         compare=compare,
+        adjustcompare=adjust_compare,
         svg=svg,
+        pricesvg=price_svg,
         livenote=live_note,
         state=state_html,
         mindmap=mindmap_html,

@@ -166,6 +166,9 @@ log/
 test/
 doc/
 
+# 东财登录凭据（私有 cookie，严禁入库）
+instock/config/eastmoney_cookie.txt
+
 # us-stock 子项目（美股双核策略）特有的数据/产物忽略
 us-stock/**/*.csv
 us-stock/**/*.xlsx

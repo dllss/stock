@@ -44,7 +44,7 @@ def emit_next_state_guide(logger, df, trade_start):
     volma = float(s["QQQ_VolMA"])
     drawdown = (close / ath - 1.0) if ath > 0 else 0.0
 
-    # 后复权价 -> 真实市价 换算系数（用于切换地图里标注真实盯盘价，避免与同花顺 724 混淆）
+    # 回测价(qfq) -> 真实市价 换算系数（用于切换地图里标注真实盯盘价，避免与同花顺 724 混淆）
     real_q = fetcher.latest_raw_close(S.DATA_TICKERS[0])
     k = (real_q / close) if close > 0 else 1.0
 
@@ -57,7 +57,7 @@ def emit_next_state_guide(logger, df, trade_start):
         "  QQQ 收盘: %.2f | ATH: %.2f | MA200: %.2f | MA20: %.2f" % (close, ath, ma200, ma20)
     )
     logger.info(
-        "  QQQ 真实市价(不复权, 盯盘用): %.2f (后复权~%.2f 的约 %.1f%%)" % (real_q, close, k * 100)
+        "  QQQ 真实市价(不复权, 盯盘用): %.2f (前复权~%.2f 的约 %.1f%%)" % (real_q, close, k * 100)
     )
     logger.info("  当前回撤: %.2f%%" % (drawdown * 100))
     logger.info("  当前状态: %s  ->  当前动作: %s" % (s["state"], LIVE_ACTION.get(s["state"], "?")))
@@ -69,12 +69,12 @@ def emit_next_state_guide(logger, df, trade_start):
     logger.info("\n[次日切换地图] 只要 QQQ 价格满足下列价能条件，即切换到对应状态：")
     logger.info("-" * 68)
 
-    high_zone_line = ath * S.HIGH_ZONE  # 逃顶价线（后复权）
-    dd10_line = ath * (1 - 0.10)  # 回撤 -10% 线（后复权）
-    dd30_line = ath * (1 - 0.30)  # 回撤 -30% 线（后复权）
+    high_zone_line = ath * S.HIGH_ZONE  # 逃顶价线（前复权 qfq）
+    dd10_line = ath * (1 - 0.10)  # 回撤 -10% 线（前复权 qfq）
+    dd30_line = ath * (1 - 0.30)  # 回撤 -30% 线（前复权 qfq）
 
     def _price(real, hfq, tag=""):
-        return "%.2f (含义: %s，后复权: %.2f)" % (real, tag, hfq)
+        return "%.2f (含义: %s，前复权: %.2f)" % (real, tag, hfq)
 
     r_ma200 = ma200 * k
     r_ma20 = ma20 * k
@@ -177,7 +177,7 @@ def emit_next_state_guide(logger, df, trade_start):
     logger.info("       估算全天量 ~ 当前时点成交量 ÷ 当日已过交易时间占比")
     logger.info("                  （例如已过半天，则 *2 粗略外推；美股本日共6.5小时）")
     logger.info(
-        "     若估算全天量 > %.0f 且 QQQ 收盘价>=%.2f (后复权~%.2f) 且 收阴(close<open)，"
+        "     若估算全天量 > %.0f 且 QQQ 收盘价>=%.2f (前复权~%.2f) 且 收阴(close<open)，"
         % (volma * S.VOL_FACTOR, high_zone_line * k, high_zone_line)
     )
     logger.info("     则触发逃顶，状态切为 TOP_ESCAPE；否则为假突破，不切换。")
@@ -203,8 +203,8 @@ def emit_live_signal(logger, df, trade_start, out):
 
     p_last = out.portfolio.iloc[-1]
     total = float(p_last["portfolio_value"])
-    px_q = float(p_last["QQQ_Close"])  # 回测价（后复权 hfq，用于策略/净值）
-    px_t = float(p_last["TQQQ_Close"])  # 回测价（后复权 hfq，用于策略/净值）
+    px_q = float(p_last["QQQ_Close"])  # 回测价（前复权 qfq，用于策略/净值）
+    px_t = float(p_last["TQQQ_Close"])  # 回测价（前复权 qfq，用于策略/净值）
 
     # 真实账户数据源来自实盘跟踪线配置 TRACK_*（与 live_track.py 同源）
     _use_real = True  # 真实账户固定以 TRACK_* 为准
@@ -212,7 +212,7 @@ def emit_live_signal(logger, df, trade_start, out):
     cur_t = S.TRACK_SHARES_TQQQ
     cur_cash = S.TRACK_CASH
 
-    # 实盘股数用「最新真实市价」估算（券商挂单价），与回测后复权净值口径分离。
+    # 实盘股数用「最新真实市价」估算（券商挂单价），与回测前复权(qfq)净值口径分离。
     real_q = fetcher.latest_raw_close(S.DATA_TICKERS[0])
     real_t = fetcher.latest_raw_close(S.DATA_TICKERS[1])
     if real_q <= 0:
@@ -223,7 +223,7 @@ def emit_live_signal(logger, df, trade_start, out):
     mkt_q = cur_q * real_q
     mkt_t = cur_t * real_t
     real_total = mkt_q + mkt_t + cur_cash
-    # 回测同口径占比（后复权持仓市值 / 后复权总资产）
+    # 回测同口径占比（前复权 qfq 持仓市值 / 前复权 qfq 总资产）
     back_w_q = (cur_q * px_q) / total if total > 0 else 0
     back_w_t = (cur_t * px_t) / total if total > 0 else 0
 
@@ -246,7 +246,7 @@ def emit_live_signal(logger, df, trade_start, out):
     logger.info("  最新价(不复权真实市价): QQQ %.2f | TQQQ %.2f" % (real_q, real_t))
     logger.info("  最后一天状态: %s | 目标权重 QQQ=%.2f  TQQQ=%.2f" % (state, w_q, w_t))
     logger.info(
-        "  账户总资产(真实市价): %.2f 美元（持仓市值+现金，非回测后复权口径）" % real_total
+        "  账户总资产(真实市价): %.2f 美元（持仓市值+现金，非回测前复权 qfq 口径）" % real_total
     )
     if _use_real:
         _w_q_real = (mkt_q / real_total * 100) if real_total > 0 else 0
@@ -266,7 +266,7 @@ def emit_live_signal(logger, df, trade_start, out):
         )
     else:
         logger.info(
-            "  当前占比(回测后复权口径, 用于再平衡判定): QQQ %.2f%% | TQQQ %.2f%%"
+            "  当前占比(回测前复权 qfq 口径, 用于再平衡判定): QQQ %.2f%% | TQQQ %.2f%%"
             % (back_w_q * 100, back_w_t * 100)
         )
     _w_q_real = (mkt_q / real_total * 100) if real_total > 0 else 0
@@ -349,9 +349,9 @@ def emit_live_signal(logger, df, trade_start, out):
         "说明: 上述股数按最新真实市价(不复权)估算，实际下单请以次日实时价微调；金额单位均为美元。"
     )
     logger.info(
-        "      回测净值用后复权价(hfq，正确处理 TQQQ 拆股，收益更准)；本指令的总资产/市值/股数"
+        "      回测净值用前复权价(qfq，锚定最新日=实盘真实价，且正确规避 TQQQ 拆股跳空)；本指令的总资产/市值/股数"
     )
-    logger.info("      均按真实市价计算（券商账户实际计价），与后复权净值口径分离、互不污染。")
+    logger.info("      均按真实市价计算（券商账户实际计价），与回测净值口径分离、互不污染。")
     logger.info("      关于T+1防融资规则(与 base 自动执行层一致): 若上方「状态切换指导」判定次日需切换状态，")
     logger.info(
         "      切换当日只执行卖出变现，买入推迟到再下一个交易日(资金结算后)按目标权重执行；"

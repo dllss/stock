@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """实盘跟踪线（线2）：独立跟踪你在真实建仓日的实盘收益率，并输出次日操作指令。
 
-与 main.py 的回测线（线1，后复权历史回测）协同：
-- 线1 跑后复权回测（python main.py），看策略历史表现。
+与 main.py 的回测线（线1，前复权 qfq 历史回测）协同：
+- 线1 跑前复权(qfq)回测（python main.py），看策略历史表现。
 - 线2 只跟踪你 2026-08-06 实际建仓的仓位（QQQ 1股 / TQQQ 11股 / 现金），
   用真实价（不复权）逐日计算你的组合市值、累计收益率、当前占比。
 - 次日操作指令：复用回测引擎算出的策略状态（NORMAL/BEAR 等），
@@ -15,7 +15,7 @@
   「实盘跟踪」章节（由 main.py 调用 build_report(live_hist_html=...) 实现）。
 - 独立运行 python live_track.py 时，日志仍写回 live_track.log（兼容），并返回 hist。
 
-运行: python live_track.py  （日常统一入口请用 python run_all.py）
+运行: python live_track.py  （日常统一入口请用 python main.py）
 """
 
 import logging
@@ -196,7 +196,7 @@ def _hist_to_html(hist: pd.DataFrame) -> str:
     ret_pct = float(hist["ret_pct"].iloc[-1]) if len(hist) else 0.0
     return (
         '<h2>实盘跟踪（线2 · 真实价口径）</h2>'
-        '<p class="note">以下为真实账户逐日跟踪，与上方回测（后复权虚拟资金）相互独立。</p>'
+        '<p class="note">以下为真实账户逐日跟踪，与上方回测（前复权 qfq 虚拟资金）相互独立。</p>'
         '<div class="live-section">'
         '<div class="chart">' + chart + '</div>'
         '<p class="note">纵轴=累计收益率%，横轴=交易日，虚线为 0% 基准。</p>'
@@ -225,7 +225,7 @@ def _hist_to_html(hist: pd.DataFrame) -> str:
 def _run_backtest_for_state(end_date: str):
     """跑一次轻量回测，只为拿到最新策略状态（df）与组合（out），供次日指令使用。
 
-    与 main.py 回测管线一致：后复权数据 + 指标 + 状态机 + engine.run。
+    与 main.py 回测管线一致：前复权(qfq)数据 + 指标 + 状态机 + engine.run。
     """
     raw = fetcher.fetch_and_merge(
         S.DATA_TICKERS,
@@ -368,11 +368,24 @@ def run(logger=None) -> pd.DataFrame:
     df, out = _run_backtest_for_state(end_date)
     if df is None or out is None:
         print("[错误] 回测引擎数据获取失败，无法生成次日指令。")
-        return hist
-    emit_next_state_guide(logger, df, S.WARMUP_END)
+        return hist, ""
+    # 捕获次日切换地图文本，供回测报告生成思维导图
+    import io
+    import logging
+    _buf = io.StringIO()
+    _cap_h = logging.StreamHandler(_buf)
+    _cap_h.setLevel(logging.INFO)
+    _orig_propagate = logger.propagate
+    logger.addHandler(_cap_h)
+    try:
+        emit_next_state_guide(logger, df, S.WARMUP_END)
+    finally:
+        logger.removeHandler(_cap_h)
+        logger.propagate = _orig_propagate
+    _guide_text = _buf.getvalue()
     emit_live_signal(logger, df, S.WARMUP_END, out)
 
-    return hist
+    return hist, _guide_text
 
 
 if __name__ == "__main__":

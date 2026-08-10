@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """
-QQQ & TQQQ 双核策略 - 标准回测入口。
-运行: python main.py
+QQQ & TQQQ 双核策略 - 统一入口。
+一条命令同时跑两条线：
+  线1 回测：前复权(qfq)历史回测，验证策略长期有效性。
+  线2 实盘跟踪：跟踪真实账户收益 + 次日操作指令（复用回测 logger，
+      实盘历史表嵌入 HTML 报告，实盘日志合并进 backtest_full_{ts}.log）。
+
+运行: python main.py [--end YYYY-MM-DD]
 """
 
 import datetime
@@ -147,7 +152,8 @@ def setup_logger(run_log_path=None):
 
 
 # ---- 实盘跟踪逻辑已迁移至 utils/live_signal.py，由 live_track.py 调用 ----
-# main.py 现在只负责回测，不再输出实盘指导。
+# main.py 是统一入口：回测 + 实盘跟踪（live_track.run 在 main() 内部调用），
+# 实盘历史表与次日指令嵌入 HTML 报告的「实盘跟踪」章节。
 
 
 def main(start=None, warmup_start=None, end=None):
@@ -237,6 +243,8 @@ def main(start=None, warmup_start=None, end=None):
         summ_vol20["cagr"] * 100,
         summ_vol20["sharpe"],
     )
+
+    # 6.2 复权对比已移除：回测全程统一使用 qfq 前复权，不再重跑 hfq 对照。
 
     logger.info("-" * 60)
     logger.info("回测结果 (双核策略):")
@@ -376,7 +384,7 @@ def main(start=None, warmup_start=None, end=None):
 
         # 实盘跟踪线：复用当前回测 logger（日志合并进 backtest_full_{ts}.log），
         # 历史表转 HTML 嵌入报告「实盘跟踪」章节。
-        live_hist = live_track.run(logger)
+        live_hist, guide_text = live_track.run(logger)
         live_hist_html = live_track._hist_to_html(live_hist) if live_hist is not None else ""
 
         run_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -389,8 +397,10 @@ def main(start=None, warmup_start=None, end=None):
             out.portfolio["state"].value_counts(),
             out.portfolio,
             start_cap,
-            run_ts,
+            trade_df=trade_df,
+            run_ts=run_ts,
             live_hist_html=live_hist_html,
+            live_text=guide_text or None,
         )
         logger.info(f"HTML报告: {html_path}")
     except Exception as e:
@@ -415,13 +425,21 @@ def pd_T(s):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="QQQ & TQQQ 双核策略回测")
+    parser = argparse.ArgumentParser(description="QQQ & TQQQ 双核策略：回测 + 实盘跟踪 统一入口")
     parser.add_argument("--start", default=None, help="交易起点日期 (默认读 settings.WARMUP_END)")
     parser.add_argument(
         "--warmup-start",
         default=None,
         help="预热起点日期，用于指标计算 (默认读 settings.WARMUP_START)",
     )
-    parser.add_argument("--end", default=None, help="回测终点日期 (默认今天)")
+    parser.add_argument("--end", default=None, help="回测终点日期 (默认今天)，同时透传给回测与实盘跟踪")
     args = parser.parse_args()
-    main(start=args.start, warmup_start=args.warmup_start, end=args.end)
+    html_path = main(start=args.start, warmup_start=args.warmup_start, end=args.end)
+
+    print("\n" + "#" * 70)
+    if html_path:
+        print("# 回测 HTML 报告已生成（含实盘跟踪章节）:")
+        print(f"#   {html_path}")
+    else:
+        print("# 回测 HTML 报告本次未生成（见上方 warning）。")
+    print("#" * 70)

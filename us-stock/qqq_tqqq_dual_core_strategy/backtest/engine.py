@@ -93,6 +93,27 @@ def run(df: pd.DataFrame) -> "types.SimpleNamespace":
                     add_trade("BUY", "TQQQ", qty, tqqq_price, cost, state)
             pending_buy = False
 
+        # --- 首日直接按目标权重建仓（初始全现金，用自己的资金当日买满，不等待状态切换）---
+        if prev_state == "INIT":
+            target_qqq_val = value * w_q
+            target_tqqq_val = value * w_t
+            buy_q_val = max(0.0, target_qqq_val - shares_qqq * qqq_price)
+            buy_t_val = max(0.0, target_tqqq_val - shares_tqqq * tqqq_price)
+            if buy_q_val >= S.MIN_TRADE_VAL and qqq_price > 0 and cash > 0:
+                qty = _round_lot(min(buy_q_val, cash) / qqq_price, qqq_price)
+                if qty > 0:
+                    cost = qty * qqq_price
+                    cash -= cost
+                    shares_qqq += qty
+                    add_trade("BUY", "QQQ", qty, qqq_price, cost, state)
+            if buy_t_val >= S.MIN_TRADE_VAL and tqqq_price > 0 and cash > 0:
+                qty = _round_lot(min(buy_t_val, cash) / tqqq_price, tqqq_price)
+                if qty > 0:
+                    cost = qty * tqqq_price
+                    cash -= cost
+                    shares_tqqq += qty
+                    add_trade("BUY", "TQQQ", qty, tqqq_price, cost, state)
+
         # --- 当日调仓判定（仅状态切换触发；首日 INIT 不交易）---
         if prev_state != "INIT" and state != prev_state:
             target_qqq_val = value * w_q
@@ -221,7 +242,7 @@ def summary(out: pd.DataFrame) -> dict:
     years = n_days / 252.0
     cagr = (final / S.INIT_CAPITAL) ** (1 / years) - 1 if years > 0 else 0.0
     # 夏普比率：组合净值日收益率均值/标准差（年化 ×√252），无风险利率取 0
-    daily_ret = curve.pct_change().dropna()
+    daily_ret = curve.pct_change(fill_method=None).dropna()
     if len(daily_ret) > 1 and daily_ret.std() > 0:
         sharpe = daily_ret.mean() / daily_ret.std() * (252**0.5)
     else:
@@ -262,7 +283,7 @@ def buy_and_hold(df: pd.DataFrame, ticker: str = "QQQ") -> dict:
     n_days = max(len(price) - 1, 1)
     years = n_days / 252.0
     cagr = (final / S.INIT_CAPITAL) ** (1 / years) - 1 if years > 0 else 0.0
-    daily_ret = curve.pct_change().dropna()
+    daily_ret = curve.pct_change(fill_method=None).dropna()
     sharpe = (
         daily_ret.mean() / daily_ret.std() * (252**0.5)
         if len(daily_ret) > 1 and daily_ret.std() > 0

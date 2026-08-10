@@ -22,7 +22,7 @@ class Settings:
 
     # ---- 标的 ----
     DATA_TICKERS: tuple[str, ...] = ("QQQ", "TQQQ")
-    ADJUST: str = "hfq"  # 复权口径：hfq 后复权（TQQQ 不复权有拆股拼接 bug）
+    ADJUST: str = "qfq"  # 复权口径：qfq 前复权（锚定最新日，价格尺度贴合实盘真实价，详见 README「数据说明」）
 
     # ---- NORMAL 常态 ----
     NORMAL_REBAL_W: float = 0.45  # QQQ / TQQQ 目标权重（各 45%，现金 10% 缓冲）
@@ -60,8 +60,8 @@ class Settings:
     RISK_ON_LIST: tuple[str, ...] = ("ZONE_BATTLE_ATTACK", "NORMAL")
 
     # ---- 预热 / 数据区间 ----
-    WARMUP_START: str = "2015-01-01"  # 指标预热起点（MA200 需足够历史）
-    WARMUP_END: str = "2018-01-01"  # 交易起点（指标已就绪）
+    WARMUP_START: str = "2008-01-01"  # 指标预热起点（MA200 需足够历史）
+    WARMUP_END: str = "2010-02-09"  # 交易起点 = TQQQ 创建日（ProShares UltraPro QQQ 成立日）
 
     # ---- 目录 ----
     OUTPUT_DIR: str = field(default_factory=lambda: os.path.join(BASE_DIR, "OUTPUT"))

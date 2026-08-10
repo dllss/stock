@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-独立数据抓取：东方财富美股日线（secid=105.{ticker}，后复权）。
+独立数据抓取：东方财富美股日线（secid=105.{ticker}，默认前复权 qfq）。
 复用主工程 instock.core.eastmoney_fetcher 的持久 session（含 cookie/headers），
 避免裸 requests 被服务端 RemoteDisconnected；含本地 CSV 缓存。
 """
@@ -48,18 +48,18 @@ def fetch_ticker(ticker: str, start: str, end: str, adjust: str = None) -> pd.Da
     """
     抓取单只美股日线。返回 DataFrame，列:
     date, Open, Close, High, Low, Volume
-    adjust: hfq=后复权(默认), qfq=前复权, ''=不复权
+    adjust: qfq=前复权(默认), ''=不复权(raw，用于实盘真实价估算)
     """
     if adjust is None:
         adjust = S.ADJUST
     market = "105"  # 美股
-    adjust_map = {"qfq": "1", "hfq": "2", "": "0"}
+    adjust_map = {"qfq": "1", "": "0"}
     params = {
         "fields1": "f1,f2,f3,f4,f5,f6",
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
         "ut": "7eea3edcaed734bea9cbfc24409ed989",
         "klt": "101",  # 日线
-        "fqt": adjust_map.get(adjust, "2"),
+        "fqt": adjust_map.get(adjust, "1"),
         "secid": f"{market}.{ticker}",
         "beg": start.replace("-", ""),
         "end": end.replace("-", ""),
@@ -82,12 +82,12 @@ def fetch_ticker(ticker: str, start: str, end: str, adjust: str = None) -> pd.Da
 
 
 def _cache_path(ticker: str) -> str:
-    adj = S.ADJUST or "hfq"
+    adj = S.ADJUST or "qfq"
     return os.path.join(S.CACHE_DIR, f"{ticker}_{adj}.csv")
 
 
 def _meta_path(ticker: str) -> str:
-    adj = S.ADJUST or "hfq"
+    adj = S.ADJUST or "qfq"
     return os.path.join(S.CACHE_DIR, f"{ticker}_{adj}.meta.json")
 
 
@@ -129,7 +129,7 @@ def _now_bj():
 def _close_time(end) -> "datetime":
     """
     美股 D 日 K 线的收盘定稿时刻（北京时间）。
-    美股盘中实时 K 线的 hfq 字段不乘复权因子，要等收盘后才会定稿。
+    美股盘中实时 K 线的当日字段（含复权价）尚未定稿，要等收盘后才会写入终值。
     定稿时刻 = 北京时间 (D+1) 日 04:00。
     """
     end_dt = pd.to_datetime(end)
@@ -140,8 +140,8 @@ def _safe_end(end):
     """
     美股收盘保护：避免抓到"今日"未定稿的 K 线。
 
-    东方财富对当日盘中实时 K 线的 hfq(后复权) 字段不乘复权因子，
-    会直接返回前复权/真实市价，导致回测误判暴跌。
+    东方财富对当日盘中实时 K 线的当日字段尚未定稿，
+    会返回不准确的当日值，导致回测误判暴跌。
     美股 D 日 K 线要等到北京时间 D+1 日 04:00 收盘后才定稿。
     因此：若 end 落在"尚未收盘定稿"的日期（now < end+1日04:00），
     自动把补抓终点退回为 end-1，等收盘后再抓定稿数据。
@@ -180,7 +180,7 @@ def fetch_and_merge(tickers, start, end) -> pd.DataFrame:
             cached_end = cached["date"].max()
             if cached_end >= pd.to_datetime(end):
                 # 新鲜度校验：缓存最后一行 == end 时，若写入时间早于该日定稿时刻，
-                # 说明是盘中抓的脏值（hfq 未乘复权因子），必须重抓最后一天。
+                # 说明是盘中抓的脏值（当日字段未定稿），必须重抓最后一天。
                 last_day_dirty = False
                 if cached_end.normalize() == pd.to_datetime(end).normalize():
                     if cached_at is None:
@@ -235,9 +235,9 @@ def fetch_and_merge(tickers, start, end) -> pd.DataFrame:
 def latest_raw_close(ticker: str) -> float:
     """
     取不复权(fqt=0)的最新收盘价，用于实盘指令估算股数。
-    回测内部用后复权(hfq)算收益更准确，但 human 实盘挂单要用真实市价，
-    两者口径不同：后复权会把历史分红再投资折算进价格(如 QQQ 后复权 1839、
-    真实市价约 724)。实盘指令必须用真实市价估算股数，避免挂错单。
+    回测内部用前复权(qfq)算收益（锚定最新日=真实市价），与 human 实盘挂单口径一致；
+    但本函数额外实时取一次不复权价作为挂单参考，避免依赖缓存末日值。
+    实盘指令必须用真实市价估算股数，避免挂错单。
 
     实时取价可能失败（盘中超时 / 主工程 emoji 在 GBK 终端崩溃等），
     失败时返回 0.0，交由调用方回退到回测后复权收盘价估算。

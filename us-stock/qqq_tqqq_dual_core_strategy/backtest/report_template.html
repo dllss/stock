@@ -24,9 +24,12 @@ h2 { font-size: 17px; margin: 28px 0 12px; border-left: 4px solid #2563eb; paddi
 .tbl td:first-child, .tbl th:first-child { text-align: left; white-space: nowrap; min-width: 100px; }
 .tbl th.cw, .tbl td.cw { min-width: 120px; white-space: nowrap; }  /* 数值列宽度 +30% */
 .tbl tbody tr:hover { background: #f9fbff; }
+.tbl tbody tr.hl-green td { background: #dcfce7; }
+.tbl tbody tr.hl-green td:first-child { font-weight: 600; color: #166534; }
 .chart { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px;
          box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 .scroll { max-height: 420px; overflow: auto; }  /* 透明滚动容器，避免表头上方出现白色块 */
+.tbl-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }  /* 仅横向滚动，用于策略对比表，避免窄屏溢出贴右 */
 .scroll .tbl { overflow: visible; border-radius: 0; border-collapse: separate; border-spacing: 0; }  /* 解除 overflow 以便 sticky 生效 */
 .scroll .tbl thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc;
                         box-shadow: 0 1px 0 #e5e7eb; }  /* 滚动时固定表头 */
@@ -37,13 +40,17 @@ h2 { font-size: 17px; margin: 28px 0 12px; border-left: 4px solid #2563eb; paddi
 .live-section .tbl th:first-child, .live-section .tbl td:first-child { text-align: left; }
 .live-section .tbl tr.pos td:last-child { color: #16a34a; font-weight: 600; }
 .live-section .tbl tr.neg td:last-child { color: #dc2626; font-weight: 600; }
+.live { background: #0d1117; color: #e6edf3; padding: 14px 16px; border-radius: 8px;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+        border: 1px solid #30363d; }
 
 /* ===== 明日操作思维导图（D3 tree） ===== */
 .mindmap-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
                padding: 16px; margin: 16px 0; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 .mindmap-wrap h3 { font-size: 15px; margin: 0 0 10px; color: #334155; }
 .mindmap-tip { color: #888; font-size: 12px; margin: 8px 0 0; }
-.mm-container { width: 100%; min-height: 560px; border: 1px solid #eef2f7; border-radius: 8px;
+.mm-container { width: 100%; min-height: 448px; border: 1px solid #eef2f7; border-radius: 8px;
                 background: #fcfdff; }
 .mm-svg { display: block; width: 100%; height: auto; }
 .mm-link { fill: none; stroke: #94a3b8; stroke-width: 1.5; }
@@ -53,23 +60,48 @@ h2 { font-size: 17px; margin: 28px 0 12px; border-left: 4px solid #2563eb; paddi
 .mm-act { font-size: 12px; fill: #15803d; font-weight: 600; }
 .mm-extra { font-size: 12px; fill: #7c3aed; font-weight: 600; }
 .mm-unreach { font-size: 12px; fill: #dc2626; font-weight: 700; }
+
+/* ===== 思维导图：屏幕 < 960px 不再等比缩小，改为固定内容宽 + 横向滚动 ===== */
+@media (max-width: 960px) {
+  .mm-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mm-svg { width: var(--mm-w, 960px); max-width: none; }  /* 用内容原始宽，文字不被压小，靠容器滚动查看 */
+}
+
+/* ===== 移动端适配（窄屏手机） ===== */
+@media (max-width: 640px) {
+  .wrap { padding: 16px 14px; }
+  h1 { font-size: 19px; }
+  h2 { font-size: 15px; margin: 22px 0 10px; }
+  .card { flex: 1 1 44%; }          /* 卡片两列并排，避免单列过长 */
+  .card-val { font-size: 19px; }
+  /* 表格在窄屏横向滚动，避免撑破视口导致整页横向滚动 */
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tbl th, .tbl td { font-size: 12px; padding: 7px 9px; }
+  .tbl td:first-child, .tbl th:first-child { min-width: 80px; }
+  .tbl th.cw, .tbl td.cw { min-width: 92px; }
+  .mindmap-wrap { padding: 12px; }
+  .mm-container { min-height: 336px; }
+}
 </style></head>
 <body><div class="wrap">
 <h1>$title</h1>
 <div class="sub">区间 $sd ~ $ed | 初始资金 $init_cap | 生成于 $run_ts</div>
 $cards
 <h2>策略对比</h2>
-$compare
+<div class="tbl-x">$compare</div>
 <h2>净值曲线（归一化到初始资金）</h2>
 <div class="chart">$svg</div>
 <div class="note">纵轴为净值倍数(x)，横轴为交易日；蓝=双核策略，绿=全仓QQQ，红=全仓TQQQ。</div>
+<h2>前复权股价走势（QQQ / TQQQ）</h2>
+<div class="chart">$pricesvg</div>
+<div class="note">左轴=QQQ 前复权真实价（绿），右轴=TQQQ 前复权真实价（红）。两量级差近 2000 倍，故用独立双轴各自标注真实数值，可对比两者相对走势节奏。</div>
 $livenote
 <h2>状态分布</h2>
 $state
-$mindmap
-$live
 <h2>每日净值明细</h2>
 <div class="scroll">$detail</div>
 $livehist
-<div class="note">数据来源：回测引擎逐日模拟，复权口径 hfq。「真实价市值」= 现金 + 份额×真实价（分红再投派实盘对账用，精确公式：real = cash + (hfq净值 − cash) / 复权因子）。完整调仓记录见同目录 .csv。</div>
+$mindmap
+$live
+<div class="note">数据来源：回测引擎逐日模拟，复权口径 qfq（前复权，锚定最新日=实盘真实价）。「真实价市值」= 现金 + 份额×真实价（交易所真实成交价，实盘对账用）。完整调仓记录见同目录 .csv。</div>
 </div></body></html>
