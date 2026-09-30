@@ -11,7 +11,7 @@ import math
 import json
 import os
 from datetime import datetime, timedelta
-from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.core.eastmoney_fetcher import eastmoney_fetcher, EASTMONEY_UT
 from instock.core.crawling.kline_utils import KLINE_COLUMNS as KLINE_DAILY_COLUMNS, apply_kline_columns
 from instock.config.delay_manager import sleep_with_delay
 
@@ -40,7 +40,7 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
         "pz": page_size,
         "po": "1",
         "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "ut": EASTMONEY_UT,
         "fltt": "2",
         "invt": "2",
         "fid": "f12",
@@ -279,7 +279,7 @@ def code_id_map_em(use_cache: bool = True, cache_expire_hours: int = 720) -> dic
         "pz": page_size,
         "po": "1",
         "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "ut": EASTMONEY_UT,
         "fltt": "2",
         "invt": "2",
         "fid": "f12",
@@ -340,7 +340,7 @@ def code_id_map_em(use_cache: bool = True, cache_expire_hours: int = 720) -> dic
         "pz": page_size,
         "po": "1",
         "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "ut": EASTMONEY_UT,
         "fltt": "2",
         "invt": "2",
         "fid": "f12",
@@ -398,7 +398,7 @@ def code_id_map_em(use_cache: bool = True, cache_expire_hours: int = 720) -> dic
         "pz": page_size,
         "po": "1",
         "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "ut": EASTMONEY_UT,
         "fltt": "2",
         "invt": "2",
         "fid": "f12",
@@ -529,7 +529,7 @@ def stock_zh_a_hist(
     params = {
         "fields1": "f1,f2,f3,f4,f5,f6",
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
-        "ut": "7eea3edcaed734bea9cbfc24409ed989",
+        "ut": EASTMONEY_UT,
         "klt": period_dict[period],
         "fqt": adjust_dict[adjust],
         "secid": f"{market_id}.{symbol}",
@@ -602,7 +602,7 @@ def stock_zh_a_hist_min_em(
         params = {
             "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
-            "ut": "7eea3edcaed734bea9cbfc24409ed989",
+            "ut": EASTMONEY_UT,
             "ndays": "5",
             "iscr": "0",
             "secid": f"{market_id}.{symbol}",
@@ -640,7 +640,7 @@ def stock_zh_a_hist_min_em(
         params = {
             "fields1": "f1,f2,f3,f4,f5,f6",
             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
-            "ut": "7eea3edcaed734bea9cbfc24409ed989",
+            "ut": EASTMONEY_UT,
             "klt": period,
             "fqt": adjust_map[adjust],
             "secid": f"{market_id}.{symbol}",
@@ -726,7 +726,7 @@ def stock_zh_a_hist_pre_min_em(
     params = {
         "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
-        "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+        "ut": EASTMONEY_UT,
         "ndays": "1",
         "iscr": "1",
         "iscca": "0",

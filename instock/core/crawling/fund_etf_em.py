@@ -152,7 +152,7 @@ from datetime import datetime
 from functools import lru_cache
 import math
 import pandas as pd
-from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.core.eastmoney_fetcher import eastmoney_fetcher, EASTMONEY_UT
 from instock.config.delay_manager import sleep_with_delay
 from instock.core.crawling.kline_utils import KLINE_COLUMNS as KLINE_DAILY_COLUMNS, apply_kline_columns
 
@@ -358,7 +358,7 @@ def fund_etf_spot_em() -> pd.DataFrame:
         "pz": page_size,        # 每页大小（page size）
         "po": "1",              # 排序方向：1=升序
         "np": "1",              # 不分页标识
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",  # 用户token（固定值）
+        "ut": EASTMONEY_UT,  # 用户token（固定值）
         "fltt": "2",            # 过滤类型
         "invt": "2",            # 投资类型
         "wbp2u": "|0|0|0|web",  # Web端标识
@@ -510,7 +510,7 @@ def _fund_etf_code_id_map_em() -> dict:
         "pz": str(page_size),
         "po": "1",              # 排序方向
         "np": "1",              # 不分页标识
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",  # 用户token
+        "ut": EASTMONEY_UT,  # 用户token
         "fltt": "2",            # 过滤类型
         "invt": "2",            # 投资类型
         "wbp2u": "|0|0|0|web",  # Web端标识
@@ -611,7 +611,7 @@ def fund_etf_hist_em(
         # f56:成交量, f57:成交额, f58:振幅, f59:涨跌幅, f60:涨跌额
         # f61:换手率, f116:其他；当前接口通常只返回 11 列，解析层会兼容 11/12 列
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
-        "ut": "7eea3edcaed734bea9cbfc24409ed989",  # 用户token
+        "ut": EASTMONEY_UT,  # 用户token
         "klt": period_dict[period],               # K线周期
         "fqt": adjust_dict[adjust],               # 复权类型
         # 证券ID：市场ID.代码
@@ -716,7 +716,7 @@ def fund_etf_hist_min_em(
             # f51:时间, f52:开盘, f53:收盘, f54:最高, f55:最低
             # f56:成交量, f57:成交额, f58:最新价
             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
-            "ut": "7eea3edcaed734bea9cbfc24409ed989",  # 用户token
+            "ut": EASTMONEY_UT,  # 用户token
             "ndays": "5",                               # 返回5天数据
             "iscr": "0",                                # 是否包含昨日收盘
             "secid": f"{code_id_dict[symbol]}.{symbol}",  # 证券ID
@@ -783,7 +783,7 @@ def fund_etf_hist_min_em(
             "fields1": "f1,f2,f3,f4,f5,f6",
             # K线字段
             "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
-            "ut": "7eea3edcaed734bea9cbfc24409ed989",  # 用户token
+            "ut": EASTMONEY_UT,  # 用户token
             "klt": period,                            # K线周期（5/15/30/60）
             "fqt": adjust_map[adjust],                # 复权类型
             "secid": f"{code_id_dict[symbol]}.{symbol}",  # 证券ID

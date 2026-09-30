@@ -16,26 +16,27 @@ qqq_tqqq_dual_core_strategy/
 ├── utils/helpers.py                # 指标计算（MA / ATH / VolMA）
 ├── strategy/strategy.py            # 状态机移植（与 base 逻辑对齐）
 ├── backtest/engine.py              # 回测撮合引擎（含 T+1 防融资）
-├── main.py                         # 回测入口 + 实盘跟踪指导(--live)
+├── main.py                         # 回测入口 + 实盘跟踪（默认包含，整合进 HTML 报告）
 └── tests/                          # pytest 正式测试（对齐验证、引擎快照回归）
 ```
 
 ## 运行
 
 ```bash
-# 标准回测（含双核1.5 vs 原值2.0 对比）
+# 标准回测（含双核1.5 vs 原值2.0 对比，默认同时包含实盘跟踪）
 python main.py
 
-# 回测 + 实盘跟踪指导（次日状态切换地图 + 再平衡指令）
-python main.py --live
+# 可选：指定起止日期（终点默认今天，同时透传给回测与实盘跟踪）
+python main.py --start 2010-02-09 --end 2026-08-10
 ```
 
 Git Bash:
 ```bash
-cd d:/WorkProject/stock/us-stock/qqq_tqqq_dual_core_strategy && python main.py --live
+cd d:/WorkProject/stock/us-stock/qqq_tqqq_dual_core_strategy && python main.py
 ```
 
-日志（含指导，UTF-8）输出到 `output/backtest_full_时间戳.log`，与同名 csv 配对。
+日志（含实盘跟踪，UTF-8）输出到 `output/backtest_full_时间戳.log`，与同名 csv 配对；
+HTML 报告（含实盘跟踪章节 + 明日操作指引 + 状态切换思维导图）输出到 `OUTPUT/backtest_full_时间戳.html`。
 
 ---
 
@@ -69,7 +70,7 @@ cd d:/WorkProject/stock/us-stock/qqq_tqqq_dual_core_strategy && python main.py -
 | `strategy/strategy.py` | 状态机逐行移植，含逃顶/Anti-V/冷静期，逻辑与 base 一致 | 否 |
 | `backtest/engine.py` | 撮合引擎含 T+1，与 base 下单时序一致 | 否 |
 | `data/fetcher.py` | 原 bug：缓存命中忽略 `end` 致前视偏差；已修复为按 `end` 截断 | 否（bug 修复） |
-| `main.py --live` | **新增辅助功能**：输出次日状态切换地图 + 再平衡股数估算，仅作跟踪参考，不改变策略逻辑 | 否（附加工具） |
+| `main.py` 实盘跟踪 | **默认整合**：输出次日状态切换地图 + 再平衡股数估算，嵌入 HTML 报告，仅作跟踪参考，不改变策略逻辑 | 否（附加工具） |
 | `config/settings.py` 其余参数 | `HIGH_ZONE=0.95` / `VOL_WINDOW=60` / `MIN_RISK_OFF_DAYS=2` / `NORMAL_REBAL_*` / `MIN_TRADE_VAL=500` 均与 base 一致 | 否 |
 
 ### 关于 VOL_FACTOR=1.5 的验证
@@ -87,12 +88,12 @@ cd d:/WorkProject/stock/us-stock/qqq_tqqq_dual_core_strategy && python main.py -
 
 ---
 
-## 实盘跟踪指导（`--live`）使用须知
+## 实盘跟踪指导（默认包含）使用须知
 
-`--live` 在回测日志末尾追加两块内容，**仅供参考，不改变策略逻辑**：
+实盘跟踪在每次 `python main.py` 运行时**默认执行**，结果整合进 HTML 报告的「实盘跟踪」「明日操作指引」「每日净值明细（真实价口径）」章节，日志同时输出到 `output/backtest_full_时间戳.log`。内容**仅供参考，不改变策略逻辑**：
 
-1. **次日状态切换地图**：列出 QQQ 价格临界点 → 目标状态 → 动作，供你盘中盯价。
-2. **次日再平衡指令**：按最后一天收盘价估算买卖股数 + 目标权重。
+1. **次日状态切换地图 / 思维导图**：列出 QQQ 价格临界点 → 目标状态 → 动作，供你盘中盯价。
+2. **次日再平衡指令**：按最后一天真实市价估算买卖股数 + 目标权重。
 
 注意事项：
 - 指导中的「状态切换」指信号触发时点；**实际下单遵循 base 的 T+1**——切换日先卖变现，买入推迟到下一交易日。

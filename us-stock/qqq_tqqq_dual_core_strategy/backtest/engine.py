@@ -195,6 +195,7 @@ def run(df: pd.DataFrame) -> "types.SimpleNamespace":
                 "state": state,
                 "QQQ_Close": qqq_price,
                 "TQQQ_Close": tqqq_price,
+                "QQQ_Volume": row.get("QQQ_Volume"),
                 "cash": cash,
                 "shares_QQQ": shares_qqq,
                 "shares_TQQQ": shares_tqqq,

@@ -29,6 +29,7 @@ volume_suffocation/
     run_full.py       全市场扫描入口
     run_tech.py       科技板块扫描入口
     run_ai.py         AI硬件&软件扫描入口
+    output/           扫描结果输出目录（HTML报告 + CSV，自动创建）
     README.md         本文件
 ```
 

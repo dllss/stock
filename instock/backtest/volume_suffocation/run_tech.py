@@ -51,7 +51,7 @@ def main(output_dir=None):
     科技板块量窒息扫描
 
     Args:
-        output_dir: HTML报告输出目录，默认 ~/WorkBuddy/
+        output_dir: HTML报告输出目录，默认 backtest/volume_suffocation/output/
     """
     logging.info("=" * 60)
     logging.info("\u91cf\u7a92\u606f\u9009\u80a1\u626b\u63cf\u5668 - \u79d1\u6280\u677f\u5757\u4e13\u9879 \u542f\u52a8")

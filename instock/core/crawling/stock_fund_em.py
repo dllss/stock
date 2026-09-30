@@ -211,7 +211,7 @@ import time
 from datetime import datetime
 import math
 import pandas as pd
-from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.core.eastmoney_fetcher import eastmoney_fetcher, EASTMONEY_UT
 from instock.config.delay_manager import sleep_with_delay
 
 __author__ = 'myh '
@@ -303,7 +303,7 @@ def stock_individual_fund_flow_rank(indicator: str = "5日") -> pd.DataFrame:
         "np": "1",  # 是否显示总数
         "fltt": "2",  # 复权类型
         "invt": "2",  # 投资类型
-        "ut": "b2884a393a59ad64002292a3e90d46a5",  # 用户token
+        "ut": EASTMONEY_UT,  # 用户token
         "fs": "m:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2",  # 筛选条件（A股）
         "fields": indicator_map[indicator][1],  # 返回字段
     }
@@ -601,7 +601,7 @@ def stock_sector_fund_flow_rank(
         "pz": page_size,  # 每页数量
         "po": "1",  # 排序方向
         "np": "1",  # 是否显示总数
-        "ut": "b2884a393a59ad64002292a3e90d46a5",  # 用户token
+        "ut": EASTMONEY_UT,  # 用户token
         "fltt": "2",  # 复权类型
         "invt": "2",  # 投资类型
         "fid0": indicator_map[indicator][0],  # 排序字段

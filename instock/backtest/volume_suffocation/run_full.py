@@ -11,7 +11,7 @@
 
 输出:
     1. 控制台打印结果
-    2. 生成HTML报告（默认输出到 ~/WorkBuddy/）
+    2. 生成HTML报告（默认输出到 backtest/volume_suffocation/output/）
 """
 
 import os
@@ -45,7 +45,7 @@ def main(output_dir=None):
     全市场量窒息扫描
 
     Args:
-        output_dir: HTML报告输出目录，默认 ~/WorkBuddy/
+        output_dir: HTML报告输出目录，默认 backtest/volume_suffocation/output/
     """
     logging.info("=" * 60)
     logging.info("\u91cf\u7a92\u606f\u9009\u80a1\u626b\u63cf\u5668 \u542f\u52a8")

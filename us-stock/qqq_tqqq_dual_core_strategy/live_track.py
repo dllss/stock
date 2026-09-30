@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""实盘跟踪线（线2）：独立跟踪你在真实建仓日的实盘收益率，并输出次日操作指令。
+"""实盘跟踪：独立跟踪你在真实建仓日的实盘收益率，并输出次日操作指令。
 
-与 main.py 的回测线（线1，前复权 qfq 历史回测）协同：
-- 线1 跑前复权(qfq)回测（python main.py），看策略历史表现。
-- 线2 只跟踪你 2026-08-06 实际建仓的仓位（QQQ 1股 / TQQQ 11股 / 现金），
+与 main.py 的回测（前复权 qfq 历史回测）协同：
+- 回测跑前复权(qfq)回测（python main.py），看策略历史表现。
+- 实盘跟踪只跟踪你 2026-08-06 实际建仓的仓位（QQQ 1股 / TQQQ 11股 / 现金），
   用真实价（不复权）逐日计算你的组合市值、累计收益率、当前占比。
 - 次日操作指令：复用回测引擎算出的策略状态（NORMAL/BEAR 等），
   套用 TRACK_* 真实账户数据，给出状态切换地图 + 再平衡建议。
@@ -170,18 +170,19 @@ def _hist_to_html(hist: pd.DataFrame) -> str:
         ("TQQQ_mkt", "TQQQ市值"),
         ("cash", "现金"),
         ("total", "总资产"),
+        ("QQQ_volume", "QQQ成交量"),
         ("ret_pct", "收益率%"),
         ("w_q_pct", "QQQ%"),
         ("w_t_pct", "TQQQ%"),
         ("w_c_pct", "现金%"),
     ]
-    int_cols = {"shares_q", "shares_t"}
+    int_cols = {"shares_q", "shares_t", "QQQ_volume"}
     thead = "".join(
         f'<th class="cw">{label}</th>' if key != "date" else f"<th>{label}</th>"
         for key, label in cols
     )
     body_rows = []
-    for _, r in hist.iterrows():
+    for _, r in hist.iloc[::-1].iterrows():
         tds = "".join(
             (f'<td class="cw">{r[key]:,.0f}</td>'
              if key in int_cols
@@ -194,13 +195,14 @@ def _hist_to_html(hist: pd.DataFrame) -> str:
         body_rows.append(f"<tr{tr_cls}>{tds}</tr>")
     chart = _build_ret_svg(hist)
     ret_pct = float(hist["ret_pct"].iloc[-1]) if len(hist) else 0.0
+    cur_total = float(hist["total"].iloc[-1]) if len(hist) else 0.0
     return (
-        '<h2>实盘跟踪（线2 · 真实价口径）</h2>'
+        '<h2>实盘跟踪（真实价口径）</h2>'
         '<p class="note">以下为真实账户逐日跟踪，与上方回测（前复权 qfq 虚拟资金）相互独立。</p>'
         '<div class="live-section">'
         '<div class="chart">' + chart + '</div>'
         '<p class="note">纵轴=累计收益率%，横轴=交易日，虚线为 0% 基准。</p>'
-        '<h3>建仓成本（线2 · 固定）</h3>'
+        '<h3>建仓成本（真实价 · 固定）</h3>'
         '<table class="tbl">'
         "<thead><tr><th>标的</th><th>建仓价</th><th>股数</th><th>成本</th></tr></thead>"
         "<tbody>"
@@ -209,11 +211,12 @@ def _hist_to_html(hist: pd.DataFrame) -> str:
         f'<tr><td>TQQQ</td><td>{S.TRACK_PRICE_TQQQ:.2f}</td><td>{S.TRACK_SHARES_TQQQ:.0f}</td>'
         f'<td>{S.TRACK_PRICE_TQQQ * S.TRACK_SHARES_TQQQ:.2f}</td></tr>'
         f'<tr><td>现金</td><td>-</td><td>-</td><td>{S.TRACK_CASH:.2f}</td></tr>'
-        f'<tr class="pos"><td>本金合计</td><td>-</td><td>-</td><td>{S.TRACK_INIT_CAPITAL:.2f}</td></tr>'
+        f'<tr class="pos"><td>起始本金合计</td><td>-</td><td>-</td><td>{S.TRACK_INIT_CAPITAL:.2f}</td></tr>'
+        f'<tr class="pos"><td>当前市值合计</td><td>-</td><td>-</td><td>{cur_total:.2f}</td></tr>'
         f'<tr class="{"pos" if ret_pct >= 0 else "neg"}"><td>累计收益率</td><td>-</td><td>-</td>' +
         f'<td>{ret_pct:.2f}%</td></tr>'
         "</tbody></table>"
-        '<h3>每日净值明细（线2 · 真实价口径）</h3>'
+        '<h3>每日净值明细（真实价口径）</h3>'
         '<div class="scroll"><table class="tbl">'
         f"<thead><tr>{thead}</tr></thead>"
         f"<tbody>{''.join(body_rows)}</tbody>"
@@ -258,7 +261,7 @@ def run(logger=None) -> pd.DataFrame:
     init_capital = S.TRACK_INIT_CAPITAL
 
     print("=" * 64)
-    print("实盘跟踪线（线2）— 独立账户真实收益率")
+    print("实盘跟踪 — 独立账户真实收益率")
     print("=" * 64)
     print(f"  建仓日: {S.TRACK_BUY_DATE}")
     print(f"  建仓: QQQ {S.TRACK_SHARES_QQQ:.0f} 股 @ {S.TRACK_PRICE_QQQ:.2f}"
@@ -283,6 +286,13 @@ def run(logger=None) -> pd.DataFrame:
     px_q = px_q.reindex(dates)
     px_t = px_t.reindex(dates)
 
+    # QQQ 当日成交量（不复权，与逃顶量能口径一致）
+    vol_q = fetcher.fetch_ticker(S.DATA_TICKERS[0], start=buy_date, end=end_date, adjust="")
+    if not vol_q.empty:
+        vol_q = vol_q.copy()
+        vol_q["date"] = pd.to_datetime(vol_q["date"]).dt.normalize()
+        vol_q = vol_q.set_index("date")["Volume"].reindex(dates)
+
     # 逐日计算组合市值与收益率
     rows = []
     for d in dates:
@@ -297,6 +307,7 @@ def run(logger=None) -> pd.DataFrame:
             "date": d.strftime("%Y-%m-%d"),
             "QQQ_close": px_q[d],
             "TQQQ_close": px_t[d],
+            "QQQ_volume": vol_q[d] if (not vol_q.empty and d in vol_q.index) else 0.0,
             "shares_q": S.TRACK_SHARES_QQQ,
             "shares_t": S.TRACK_SHARES_TQQQ,
             "QQQ_mkt": mkt_q,

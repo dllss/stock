@@ -3,7 +3,7 @@
 
 import pandas as pd
 import instock.core.tablestructure as tbs
-from instock.core.eastmoney_fetcher import eastmoney_fetcher
+from instock.core.eastmoney_fetcher import eastmoney_fetcher, EASTMONEY_UT
 
 __author__ = 'myh '
 __date__ = '2025/12/31 '
@@ -121,7 +121,7 @@ def stock_zjlx_em(symbol: str = "688041") -> pd.DataFrame:
         "klt": "1",
         "fields1": "f1,f2,f3,f7",
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65",
-        "ut": "b2884a393a59ad64002292a3e90d46a5",
+        "ut": EASTMONEY_UT,
         "secid": symbol
     }
 

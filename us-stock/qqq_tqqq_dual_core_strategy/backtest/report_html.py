@@ -286,6 +286,7 @@ def _detail_table(port: pd.DataFrame):
         "shares_TQQQ",
         "portfolio_value",
         "real_value",
+        "QQQ_Volume",
         "ret",
     ]
     # real_value 缺失时（无 raw 价）静默跳过该列
@@ -304,6 +305,7 @@ def _detail_table(port: pd.DataFrame):
         "shares_TQQQ": "TQQQ份额",
         "portfolio_value": "qfq净值",
         "real_value": "真实价市值",
+        "QQQ_Volume": "QQQ成交量",
         "ret": "累计收益",
     }
     head = "".join(
@@ -311,7 +313,7 @@ def _detail_table(port: pd.DataFrame):
         for c in cols
     )
     rows = []
-    for _, r in port[cols].iterrows():
+    for _, r in port[cols].iloc[::-1].iterrows():
         vals = []
         for c in cols:
             v = r[c]
@@ -326,6 +328,8 @@ def _detail_table(port: pd.DataFrame):
                     vals.append(_money(float(v)))  # 真实价市值（真实成交价 × 份额，实盘对账用）
                 else:
                     vals.append(_money(float(v)) if c == "portfolio_value" else _fmt(float(v)))
+            elif c == "QQQ_Volume":
+                vals.append(_money(float(v)))  # 当日 QQQ 成交量（整数千分位）
             else:
                 vals.append(_fmt(float(v)))
         cells = "".join(
@@ -421,7 +425,9 @@ def _parse_mindmap(live_text):
     #   "当前状态: NORMAL  ->  当前动作: 持有 QQQ+TQQQ (各45%, 留10%现金)"
     act_m = re.search(r"当前动作:\s*(.+)", text)
     root_action = act_m.group(1).strip() if act_m else ""
-    root = {"state": root_state, "cond": "", "action": root_action, "children": []}
+    vol_m = re.search(r"当日QQQ成交量:\s*([\d.,]+)", text)
+    root_qqq_vol = vol_m.group(1).strip() if vol_m else ""
+    root = {"state": root_state, "cond": "", "action": root_action, "qqq_vol": root_qqq_vol, "children": []}
     cur_main = None
     cur_sub = None  # 当前子节点（挂在 cur_main 下）
 
@@ -512,6 +518,7 @@ def _tree_to_d3(root):
             "cond": node.get("cond", "") or "",
             "action": node.get("action", "") or "",
             "cond_note": node.get("cond_note", "") or "",
+            "qqq_vol": node.get("qqq_vol", "") or "",
             "children": [conv(c) for c in node.get("children", [])],
         }
 
@@ -533,7 +540,7 @@ def _build_mindmap(root):
     payload = json.dumps(data, ensure_ascii=False)
 
     svg = (
-        '<div class="mindmap-wrap"><h3>明日操作思维导图（状态切换地图）</h3>'
+        '<div class="mindmap-wrap">'
         '<div id="mm-container" class="mm-container"></div>'
         '<p class="mindmap-tip">「当前状态 → 次日可能切换的目标状态」思维导图；'
         "完整价能条件与操作指令见下方原文。</p>"
@@ -566,6 +573,7 @@ def _build_mindmap(root):
         "      if (parts.length > 1) lines.push('附加 ' + stripHfq(parts[1]));\n"
         "    }\n"
     "    if (d.data.action) lines.push((d.depth === 0 ? '当前动作 ' : '执行动作 ') + d.data.action);\n"
+    "    if (d.depth === 0 && d.data.qqq_vol) lines.push('当日QQQ成交量 ' + d.data.qqq_vol);\n"
     "    d._lines = lines;\n"
     "    d._h = lines.length * lh + pad * 2;\n"
     "    // 不可达检测：价能条件出现「左界 <= ... < 右界」且左界数值 > 右界数值（区间为空）\n"
@@ -669,20 +677,18 @@ def build_report(
     port = _attach_real_value(port)
     detail = _detail_table(port)
 
-    # 实盘跟踪段（--live 时才有意义，但仅在 live 时渲染提示）
+    # 实盘跟踪段（默认包含，live 有内容时渲染提示）
     live_note = ""
     if live:
         live_note = (
-            "<p class='note'>提示：本运行含 --live 实盘跟踪，"
+            "<p class='note'>提示：本报告已默认包含实盘跟踪，"
             "下方为明日操作指引（真实市价股数、切换地图）。</p>"
         )
     # 实盘操作指引（明日指令 + 切换地图），与 log 完全一致，原样渲染
     live_html = ""
     mindmap_html = ""
     if live_text:
-        live_html = "<h2>明日操作指引（实盘跟踪 --live）</h2>" "<pre class='live'>%s</pre>" % _esc(
-            live_text
-        )
+        live_html = "<pre class='live'>%s</pre>" % _esc(live_text)
         # 思维导图动画：可视化「切换地图」的状态分支
         mm_tree = _parse_mindmap(live_text)
         if mm_tree:

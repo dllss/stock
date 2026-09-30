@@ -6,6 +6,9 @@ import os
 import logging
 from datetime import datetime
 
+# 默认输出目录：包目录下的 output/
+DEFAULT_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output')
+
 
 def _confirm_color(status):
     """根据确认状态返回颜色"""
@@ -41,7 +44,7 @@ def _cat_color(category):
 def generate_full_market_html(results_df, industry_stats, latest_date, output_dir=None):
     """生成全市场量窒息扫描HTML报告"""
     if output_dir is None:
-        output_dir = os.path.join(os.path.expanduser('~'), 'WorkBuddy')
+        output_dir = DEFAULT_OUTPUT_DIR
 
     output_path = os.path.join(output_dir, '\u91cf\u7a92\u606f\u9009\u80a1\u7ed3\u679c.html')
 
@@ -146,6 +149,7 @@ h2 {{ color: #333; margin: 20px 0 10px; font-size: 18px; }}
 </body>
 </html>"""
 
+    os.makedirs(output_dir, exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html)
     logging.info(f"HTML\u62a5\u544a\u5df2\u751f\u6210: {output_path}")
@@ -157,7 +161,7 @@ h2 {{ color: #333; margin: 20px 0 10px; font-size: 18px; }}
 def generate_tech_html(results_df, industry_stats, latest_date, tech_total, output_dir=None):
     """生成科技板块量窒息扫描HTML报告"""
     if output_dir is None:
-        output_dir = os.path.join(os.path.expanduser('~'), 'WorkBuddy')
+        output_dir = DEFAULT_OUTPUT_DIR
 
     output_path = os.path.join(output_dir, '\u79d1\u6280\u677f\u5757\u91cf\u7a92\u606f\u7ed3\u679c.html')
 
@@ -263,6 +267,7 @@ h2 {{ color: #333; margin: 20px 0 10px; font-size: 18px; }}
 </body>
 </html>"""
 
+    os.makedirs(output_dir, exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html)
     logging.info(f"HTML\u62a5\u544a\u5df2\u751f\u6210: {output_path}")
@@ -274,7 +279,7 @@ h2 {{ color: #333; margin: 20px 0 10px; font-size: 18px; }}
 def generate_ai_html(results_df, trend_df, near_df, strong_df, big_df, latest_date, ai_total, output_dir=None):
     """生成AI硬件&软件量窒息分析HTML报告"""
     if output_dir is None:
-        output_dir = os.path.join(os.path.expanduser('~'), 'WorkBuddy')
+        output_dir = DEFAULT_OUTPUT_DIR
 
     output_path = os.path.join(output_dir, 'AI\u786c\u4ef6\u8f6f\u4ef6\u91cf\u7a92\u606f\u7ed3\u679c.html')
 
@@ -470,6 +475,7 @@ tr:hover {{ background: #faf5ff; }}
 </body>
 </html>"""
 
+    os.makedirs(output_dir, exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html)
     logging.info(f"HTML\u62a5\u544a\u5df2\u751f\u6210: {output_path}")

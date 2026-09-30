@@ -61,6 +61,7 @@ def emit_next_state_guide(logger, df, trade_start):
     )
     logger.info("  当前回撤: %.2f%%" % (drawdown * 100))
     logger.info("  当前状态: %s  ->  当前动作: %s" % (s["state"], LIVE_ACTION.get(s["state"], "?")))
+    logger.info("  当日QQQ成交量: %.0f" % float(s.get("QQQ_Volume", 0.0) or 0.0))
     logger.info(
         "  QQQ 成交量均线 VolMA(前%d日): %.0f  ->  逃顶量能阈值 = VolMA*%.1f = %.0f"
         % (S.VOL_WINDOW, volma, S.VOL_FACTOR, volma * S.VOL_FACTOR)
@@ -87,7 +88,7 @@ def emit_next_state_guide(logger, df, trade_start):
         (
             "逃顶 TOP_ESCAPE",
             "QQQ 收盘 >= %s" % _price(r_hz, high_zone_line, "ATH*%.2f" % S.HIGH_ZONE),
-            "还需: 当日成交量>%.0f(VolMA*%.1f) 且 收阴(close<open)"
+            "还需: 当日QQQ成交量>%.0f(VolMA*%.1f) 且 收阴(close<open)"
             % (volma * S.VOL_FACTOR, S.VOL_FACTOR),
             LIVE_ACTION["TOP_ESCAPE"],
         )
@@ -177,7 +178,7 @@ def emit_next_state_guide(logger, df, trade_start):
     logger.info("       估算全天量 ~ 当前时点成交量 ÷ 当日已过交易时间占比")
     logger.info("                  （例如已过半天，则 *2 粗略外推；美股本日共6.5小时）")
     logger.info(
-        "     若估算全天量 > %.0f 且 QQQ 收盘价>=%.2f (前复权~%.2f) 且 收阴(close<open)，"
+        "     若估算全天QQQ成交量 > %.0f 且 QQQ 收盘价>=%.2f (前复权~%.2f) 且 收阴(close<open)，"
         % (volma * S.VOL_FACTOR, high_zone_line * k, high_zone_line)
     )
     logger.info("     则触发逃顶，状态切为 TOP_ESCAPE；否则为假突破，不切换。")

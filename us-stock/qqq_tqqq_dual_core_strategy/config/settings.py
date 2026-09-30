@@ -60,8 +60,8 @@ class Settings:
     RISK_ON_LIST: tuple[str, ...] = ("ZONE_BATTLE_ATTACK", "NORMAL")
 
     # ---- 预热 / 数据区间 ----
-    WARMUP_START: str = "2008-01-01"  # 指标预热起点（MA200 需足够历史）
-    WARMUP_END: str = "2010-02-09"  # 交易起点 = TQQQ 创建日（ProShares UltraPro QQQ 成立日）
+    WARMUP_START: str = "2015-01-01"  # 指标预热起点（MA200 需足够历史）
+    WARMUP_END: str = "2017-01-02"  # 交易起点
 
     # ---- 目录 ----
     OUTPUT_DIR: str = field(default_factory=lambda: os.path.join(BASE_DIR, "OUTPUT"))

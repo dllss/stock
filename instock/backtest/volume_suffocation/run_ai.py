@@ -69,7 +69,7 @@ def main(output_dir=None):
     AI硬件&软件量窒息扫描
 
     Args:
-        output_dir: HTML报告输出目录，默认 ~/WorkBuddy/
+        output_dir: HTML报告输出目录，默认 backtest/volume_suffocation/output/
     """
     logging.info("=" * 60)
     logging.info("\u91cf\u7a92\u606f\u626b\u63cf\u5668 - AI\u786c\u4ef6&\u8f6f\u4ef6\u4e13\u9879 \u542f\u52a8")
@@ -211,10 +211,12 @@ def main(output_dir=None):
     generate_ai_html(results_df, trend_df, near_df, strong_df, big_df, latest_date, len(ai_df), output_dir)
 
     # 保存CSV
-    if output_dir:
-        csv_path = os.path.join(output_dir, 'AI\u677f\u5757\u8d8b\u52bf\u5206\u6790.csv')
-        trend_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-        logging.info(f"\u8d8b\u52bf\u5206\u6790CSV: {csv_path}")
+    from instock.backtest.volume_suffocation.html_report import DEFAULT_OUTPUT_DIR
+    csv_dir = output_dir if output_dir else DEFAULT_OUTPUT_DIR
+    os.makedirs(csv_dir, exist_ok=True)
+    csv_path = os.path.join(csv_dir, 'AI\u677f\u5757\u8d8b\u52bf\u5206\u6790.csv')
+    trend_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+    logging.info(f"\u8d8b\u52bf\u5206\u6790CSV: {csv_path}")
 
     return results_df
 

@@ -17,6 +17,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 __author__ = 'myh'
 __date__ = '2025/12/31 '
 
+# 东方财富接口匿名 token（ut 参数）。
+# 这是公开可用的匿名 token，非登录态；与网页版抓包一致，相对最干净。
+# 所有 crawling 模块统一引用此常量，避免 token 分散硬编码、便于一处维护。
+EASTMONEY_UT = 'fa5fd1943c7b386f172d6893dbfba10b'
+
 # 单例实例
 _instance = None
 
@@ -279,21 +284,21 @@ class eastmoney_fetcher:
 
         # 设置请求头
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
             'Referer': 'https://quote.eastmoney.com/',
             'Accept': '*/*',
             'Accept-Language': 'zh-CN,zh;q=0.9',
             # 'Accept-Encoding': 'gzip, deflate, br, zstd', # 注意：不设置 Accept-Encoding，让 requests 自动处理压缩
             'Connection': 'keep-alive',
-            # 'Cache-Control': 'no-cache',
-            # 'Pragma': 'no-cache',
-            # # Sec-Fetch 系列（浏览器安全策略，必须包含）
-            # 'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
-            # 'sec-ch-ua-mobile': '?0',
-            # 'sec-ch-ua-platform': '"Windows"',
-            # 'sec-fetch-dest': 'script',
-            # 'sec-fetch-mode': 'no-cors',
-            # 'sec-fetch-site': 'same-site',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            # Sec-Fetch 系列（浏览器安全策略，与网页版保持一致）
+            'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'script',
+            'sec-fetch-mode': 'no-cors',
+            'sec-fetch-site': 'same-site',
         }
         session.headers.update(headers)
         # 设置Cookie到请求头
