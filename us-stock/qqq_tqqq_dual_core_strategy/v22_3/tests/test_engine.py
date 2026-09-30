@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""engine.run 的功能与不变量测试（防回归）。
-
-注意：scripts/verify_engine.py 用 base.ts 复刻版做逐笔净值比对，目前发现
-engine 与 base 复刻在 2022-08-15 附近有 ~7.7% 偏差（复刻误差或策略待对齐项），
-属已知 TODO，不在此处做硬断言。本测试聚焦 engine 自身行为稳定性与不变量的
-快照回归，确保后续改动不会破坏既有回测结果。
-"""
+"""V22.3 回测引擎的功能与不变量测试。"""
 
 import os
 import sys
@@ -14,16 +8,14 @@ import pandas as pd
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
+COMMON_ROOT = os.path.abspath(os.path.join(ROOT, "..", "common"))
+for _path in (ROOT, COMMON_ROOT):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 import backtest.engine as engine  # noqa: E402
 import strategy.strategy as ST  # noqa: E402
 from config.settings import S  # noqa: E402
-
-# 全周期回测快照（首次生成后缓存，用于回归比对）
-_SNAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "engine_snapshot.json")
-
 
 @pytest.fixture(scope="session")
 def engine_out(trade_df: pd.DataFrame) -> "object":
@@ -59,22 +51,3 @@ def test_buyhold_benchmark_reasonable(trade_df: pd.DataFrame, engine_out: "objec
     for v in (final, bh_qqq["final_value"], bh_tqqq["final_value"]):
         assert v / final < 50, "与基准数量级异常偏差"
 
-
-def test_snapshot_regression(engine_out: "object"):
-    """快照回归：最终资产与累计收益应与缓存基准一致（防未来改动破坏）。"""
-    import json
-
-    final = float(engine_out.portfolio["portfolio_value"].iloc[-1])
-    summ = engine.summary(engine_out.portfolio)
-    ret = float(summ["total_return"])
-    snap = {"final_value": final, "total_return": ret}
-
-    if not os.path.exists(_SNAP):
-        with open(_SNAP, "w", encoding="utf-8") as f:
-            json.dump(snap, f, indent=2)
-        pytest.skip("快照不存在，已生成基准，下次运行将比对")
-
-    with open(_SNAP, encoding="utf-8") as f:
-        base = json.load(f)
-    rel = abs(final - base["final_value"]) / base["final_value"] * 100
-    assert rel < 0.5, f"最终资产相对快照偏差 {rel:.4f}% 超阈值（回归？）"

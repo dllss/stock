@@ -13,13 +13,32 @@ from data import fetcher
 from strategy import strategy as ST
 
 # ---- 实盘跟踪：状态 -> 实盘动作描述 ----
+def _action_for_state(state):
+    weights = ST.target_weights(state)
+    q_pct = int(weights["QQQ"] * 100)
+    t_pct = int(weights["TQQQ"] * 100)
+    cash_pct = 100 - q_pct - t_pct
+    if q_pct == 0 and t_pct == 0:
+        return "清空全部, 持有现金 (100%)"
+    if q_pct == 0:
+        return "持有 TQQQ (%d%%), 现金 %d%%" % (t_pct, cash_pct)
+    if t_pct == 0:
+        return "持有 QQQ (%d%%), 现金 %d%%" % (q_pct, cash_pct)
+    return "持有 QQQ (%d%%) + TQQQ (%d%%), 现金 %d%%" % (q_pct, t_pct, cash_pct)
+
+
 LIVE_ACTION = {
-    "NORMAL": "持有 QQQ+TQQQ (各45%, 留10%现金)",
-    "ZONE_BATTLE_ATTACK": "持有 TQQQ (99%)",
-    "ZONE_DESPAIR_TQQQ": "持有 TQQQ (99%)",
-    "ZONE_BATTLE_DEFEND": "切换为 QQQ (90%), 清空 TQQQ",
-    "TOP_ESCAPE": "切换为 QQQ (90%), 清空 TQQQ (逃顶)",
-    "BEAR_CASH": "清空全部, 持有现金 (100%)",
+    state: _action_for_state(state)
+    for state in (
+        "NORMAL",
+        "HI",
+        "HI_CASH",
+        "ZONE_BATTLE_ATTACK",
+        "ZONE_DESPAIR_TQQQ",
+        "ZONE_BATTLE_DEFEND",
+        "TOP_ESCAPE",
+        "BEAR_CASH",
+    )
 }
 
 
@@ -126,7 +145,7 @@ def emit_next_state_guide(logger, df, trade_start):
             (
                 "站回 MA200 -> 回 NORMAL/ATTACK",
                 "QQQ 收盘 > %s" % _price(r_ma200, ma200, "MA200"),
-                "回撤<-10%%则 ATTACK(TQQQ), 否则 NORMAL(QQQ+TQQQ)",
+                "回撤<-10%%则 ATTACK(TQQQ), 否则 NORMAL(%s)" % LIVE_ACTION["NORMAL"],
                 LIVE_ACTION["NORMAL"],
             )
         )
@@ -134,7 +153,8 @@ def emit_next_state_guide(logger, df, trade_start):
             (
                 "回撤 -10%% 线",
                 "QQQ 收盘 %s" % _price(r_dd10, dd10_line, "ATH*0.90"),
-                "上方且>MA200 -> NORMAL; 下方且<MA200 进入风险区分档",
+                "上方且>MA200 -> NORMAL(%s); 下方且<MA200 进入风险区分档"
+                % LIVE_ACTION["NORMAL"],
                 LIVE_ACTION["NORMAL"],
             )
         )
@@ -146,14 +166,21 @@ def emit_next_state_guide(logger, df, trade_start):
                 LIVE_ACTION["ZONE_DESPAIR_TQQQ"],
             )
         )
-    lines.append(
-        (
-            "NORMAL 日内再平衡",
-            "状态不变, 但 QQQ/TQQQ 任一侧偏离目标>%.0f%%" % (S.NORMAL_REBAL_DEV * 100),
-            "当日卖出偏离侧、买入补回 45/45",
-            LIVE_ACTION["NORMAL"],
+    normal_weights = ST.target_weights("NORMAL")
+    if (
+        getattr(S, "NORMAL_REBAL_ENABLED", True)
+        and normal_weights["QQQ"] > 0
+        and normal_weights["TQQQ"] > 0
+    ):
+        lines.append(
+            (
+                "NORMAL 日内再平衡",
+                "状态不变, 但 QQQ/TQQQ 任一侧偏离目标>%.0f%%"
+                % (S.NORMAL_REBAL_DEV * 100),
+                "当日卖出偏离侧、买入补回目标权重",
+                LIVE_ACTION["NORMAL"],
+            )
         )
-    )
 
     for row in lines:
         title, price_cond, extra, act = row[0], row[1], row[2], row[3]

@@ -13,8 +13,10 @@ import pytest
 
 # 让 tests/ 能 import 到项目根包（config / data / strategy / backtest / utils）
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
+COMMON_ROOT = os.path.abspath(os.path.join(ROOT, "..", "common"))
+for _path in (ROOT, COMMON_ROOT):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from config.settings import S  # noqa: E402
 from data import fetcher  # noqa: E402

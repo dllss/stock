@@ -10,7 +10,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 保持合并前的输出、缓存和日志目录：仍位于 qqq_tqqq_dual_core_strategy 根目录。
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @dataclass
@@ -27,6 +28,7 @@ class Settings:
     # ---- NORMAL 常态 ----
     NORMAL_REBAL_W: float = 0.45  # QQQ / TQQQ 目标权重（各 45%，现金 10% 缓冲）
     NORMAL_REBAL_DEV: float = 0.20  # 市值偏离 > 20% 才触发再平衡
+    NORMAL_REBAL_ENABLED: bool = True
 
     # ---- 实盘跟踪线（独立账户，从建仓日起算真实收益率，与回测线分离）----
     # 同时作为 --live 次日操作指令的真实账户数据源（唯一真实账户入口）。

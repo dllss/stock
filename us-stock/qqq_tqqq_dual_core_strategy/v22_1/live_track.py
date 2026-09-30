@@ -25,7 +25,11 @@ import time
 
 import pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+VERSION_ROOT = os.path.dirname(os.path.abspath(__file__))
+COMMON_ROOT = os.path.abspath(os.path.join(VERSION_ROOT, "..", "common"))
+for _path in (VERSION_ROOT, COMMON_ROOT):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from config.settings import S
 from data import fetcher

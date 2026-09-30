@@ -16,7 +16,9 @@ import requests
 from config.settings import S
 
 # 引入主工程（instock 位于本工程上级目录的同级 instock/）
-_INSTOCK_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+_INSTOCK_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+)
 if _INSTOCK_ROOT not in sys.path:
     sys.path.insert(0, _INSTOCK_ROOT)
 from instock.core.eastmoney_fetcher import eastmoney_fetcher  # noqa: E402

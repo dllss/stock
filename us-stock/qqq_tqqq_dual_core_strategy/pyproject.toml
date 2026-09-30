@@ -57,5 +57,5 @@ target-version = ["py310"]
 include = '\.pyi?$'
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["v22_1/tests", "v22_3/tests"]
 addopts = "-q"

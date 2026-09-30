@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 回测引擎：状态机驱动 + 现金账户 + portfolio 模拟 + 整手取整再平衡。
-对齐 base.ts V22.1：状态切换才调仓；NORMAL 偏离>阈值再平衡；单笔<min_tr 不交易。
+支持 V22.1 双资产再平衡和 V22.3 单一 TQQQ 常态仓位；版本差异由 settings 控制。
 portfolio_value = 现金 + 持仓市值（卖出变现进入现金，买入消耗现金）。
 独立实现，不依赖主工程。
 """
@@ -24,7 +24,7 @@ def run(df: pd.DataFrame) -> "types.SimpleNamespace":
     """
     输入：含 date, QQQ_Close, TQQQ_Close, state, w_QQQ, w_TQQQ 的 DataFrame
     输出：逐日 portfolio 记录（含现金、持仓、总净值）
-    对齐 base.ts V22.1:
+    通用交易规则:
       - 首日 state_label='INIT'，不交易（等首次状态切换）
       - 状态切换当日只卖出（变现到现金），pending_buy=True
       - 次日（pending_buy）才按目标权重买入（T+1 防融资）
@@ -137,9 +137,17 @@ def run(df: pd.DataFrame) -> "types.SimpleNamespace":
                     add_trade("SELL", "TQQQ", qty, tqqq_price, proceeds, state)
             pending_buy = True
 
-        # --- NORMAL 状态内偏离再平衡（对齐 base.ts V22: NORMAL 且两侧市值差占比>20%调回45/45）---
+        # --- NORMAL 状态内偏离再平衡（仅双资产版本启用）---
         # 仅在非切换日（切换日已通过 pending_buy 处理）且当前持仓已建立后执行。
-        if prev_state != "INIT" and state == "NORMAL" and not pending_buy and value > 0:
+        if (
+            prev_state != "INIT"
+            and state == "NORMAL"
+            and not pending_buy
+            and value > 0
+            and getattr(S, "NORMAL_REBAL_ENABLED", True)
+            and w_q > 0
+            and w_t > 0
+        ):
             val_q = shares_qqq * qqq_price
             val_t = shares_tqqq * tqqq_price
             # 与 base 一致：偏差 = |市值_q - 市值_t| / 总市值

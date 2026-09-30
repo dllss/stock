@@ -4,7 +4,7 @@
 
 输出内容：
   1. 关键指标卡片（累计收益 / 年化 / 最大回撤 / 夏普 / 最终资产）
-  2. 策略对比表（双核正式1.5 / 双核原值2.0 / 全仓QQQ / 全仓TQQQ）
+  2. 策略对比表（正式参数 / VOL_FACTOR=2.0 对照 / 全仓QQQ / 全仓TQQQ）
   3. 净值曲线 SVG 图（双核 vs QQQ vs TQQQ，归一化到初始资金）
   4. 状态分布
   5. 每日净值明细表（可滚动）
@@ -22,6 +22,8 @@ STATE_CN = {
     "INIT": "INIT(初始)",
     "NORMAL": "NORMAL(常态)",
     "TOP_ESCAPE": "TOP_ESCAPE(逃顶)",
+    "HI": "HI(高位去杠杆)",
+    "HI_CASH": "HI_CASH(高位空仓)",
     "ZONE_DESPAIR_TQQQ": "ZONE_DESPAIR_TQQQ(绝望区TQQQ)",
     "ZONE_BATTLE_ATTACK": "ZONE_BATTLE_ATTACK(交战进攻)",
     "ZONE_BATTLE_DEFEND": "ZONE_BATTLE_DEFEND(交战防守)",
@@ -367,6 +369,8 @@ def _cards(summ, init_cap):
 
 
 def _compare_table(summ, summ_vol20, bh_qqq, bh_tqqq):
+    from config.settings import S
+
     def row(label, s):
         if not s:
             return "<tr><td>%s</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>" % _esc(
@@ -385,7 +389,7 @@ def _compare_table(summ, summ_vol20, bh_qqq, bh_tqqq):
         "<table class='tbl'>"
         "<thead><tr><th>策略</th><th>最终资产</th><th>累计收益</th><th>年化</th><th>最大回撤</th><th>夏普</th></tr></thead>"
         "<tbody>"
-        + row("双核(正式1.5)", summ)
+        + row("双核(正式%.1f)" % S.VOL_FACTOR, summ)
         + row("双核(原值2.0)", summ_vol20)
         + row("全仓QQQ", bh_qqq)
         + row("全仓TQQQ", bh_tqqq)

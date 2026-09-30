@@ -18,8 +18,12 @@ import unicodedata
 
 import pandas as pd
 
-# 保证可 import 同级包
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 版本代码优先使用自己的 config/strategy，共用 common 下的数据、回测和工具模块。
+VERSION_ROOT = os.path.dirname(os.path.abspath(__file__))
+COMMON_ROOT = os.path.abspath(os.path.join(VERSION_ROOT, "..", "common"))
+for _path in (VERSION_ROOT, COMMON_ROOT):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from backtest import engine
 from config.settings import S
