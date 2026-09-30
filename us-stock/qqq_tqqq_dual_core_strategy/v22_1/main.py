@@ -121,7 +121,7 @@ def _merge_portfolio_trades(portfolio: "pd.DataFrame", trades: "pd.DataFrame") -
         t["_seq"] = t.groupby("date(日期)").cumcount()  # 0,1,... 当日第几笔
         # 透视：每行一笔交易 -> 每列一组(序号+字段)
         wide = t.pivot(index="date(日期)", columns="_seq")
-        wide.columns = [f"{col[0]}{col[1]+1}" for col in wide.columns]  # 动作1/标的1...
+        wide.columns = [f"{col[0]}{col[1] + 1}" for col in wide.columns]  # 动作1/标的1...
         # 补齐缺失序号列
         for i in range(1, MAX_TRADE_PER_DAY + 1):
             for fld in TRADE_FIELDS:
@@ -168,8 +168,8 @@ def main(start=None, warmup_start=None, end=None):
 
     # 运行时时间戳：CSV 与同名 log 共用，保证配对
     run_ts = time.strftime("%Y%m%d_%H%M%S")
-    out_path = os.path.join(S.OUTPUT_DIR, f"backtest_full_{run_ts}.csv")
-    log_path = os.path.join(S.OUTPUT_DIR, f"backtest_full_{run_ts}.log")
+    out_path = os.path.join(S.OUTPUT_DIR, f"backtest_v22.1_full_{run_ts}.csv")
+    log_path = os.path.join(S.OUTPUT_DIR, f"backtest_v22.1_full_{run_ts}.log")
 
     logger = setup_logger(run_log_path=log_path)
     logger.info("=" * 60)
@@ -436,7 +436,9 @@ if __name__ == "__main__":
         default=None,
         help="预热起点日期，用于指标计算 (默认读 settings.WARMUP_START)",
     )
-    parser.add_argument("--end", default=None, help="回测终点日期 (默认今天)，同时透传给回测与实盘跟踪")
+    parser.add_argument(
+        "--end", default=None, help="回测终点日期 (默认今天)，同时透传给回测与实盘跟踪"
+    )
     args = parser.parse_args()
     html_path = main(start=args.start, warmup_start=args.warmup_start, end=args.end)
 
